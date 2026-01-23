@@ -1,130 +1,290 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social ETL Dashboard</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Socratic Snowman Scheduler</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Social ETL Scheduler</h2>
-        <div>
-            Status: <span id="api-status" class="status-offline">CHECKING...</span>
-        </div>
-    </div>
+    <!-- 3D Background -->
+    <div id="canvas-orb"></div>
 
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>Event Extraction Logs</span>
-            <button id="sync-btn" class="btn btn-primary btn-sm" onclick="triggerSync()">
-                Sync Now
-            </button>
-        </div>
-        <div class="card-body p-0">
-            <div id="log-container">
-                <div class="log-entry">> Initializing Social ETL Dashboard...</div>
-                <div class="log-entry">> Waiting for logs...</div>
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+        <header class="top-bar">
+            <h1 class="glitch-text" data-text="SOCIAL ETL SCHEDULER">SOCIAL ETL SCHEDULER</h1>
+            <div class="status-panel">
+                STATUS: <span id="api-status" class="status-indicator">INITIALIZING</span>
             </div>
-        </div>
+        </header>
+
+        <main class="dashboard-grid">
+            <!-- Left: Terminal Logs -->
+            <section class="terminal-panel">
+                <div class="panel-header">>> SYSTEM LOGS</div>
+                <div id="log-container" class="terminal-body">
+                    <div class="log-entry">> Initializing Socratic Core...</div>
+                    <div class="log-entry">> Establishing Uplink...</div>
+                </div>
+            </section>
+
+            <!-- Right: Controls & Events -->
+            <section class="control-panel">
+                <div class="panel-header">>> FOUND EVENTS</div>
+                <div id="events-container" class="events-body">
+                    <ul id="event-list">
+                        <!-- Events populated here -->
+                    </ul>
+                </div>
+
+                <div class="action-area">
+                    <button id="sync-btn" class="cyber-btn" onclick="triggerSync()">
+                        <span class="btn-content">[ INITIATE SYNC ]</span>
+                        <span class="btn-glitch"></span>
+                    </button>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <div class="card">
-        <div class="card-header">Found Events</div>
-        <div class="card-body">
-            <p class="text-muted small">Recent events extracted from email will appear here.</p>
-            <ul id="event-list" class="list-group list-group-flush">
-                <!-- Events will be populated here -->
-            </ul>
-        </div>
-    </div>
-</div>
+    <!-- Application Logic -->
+    <script>
+        // --- API Interaction Logic ---
 
-<!-- Bootstrap Bundle with Popper -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        function triggerSync() {
+            const btn = document.getElementById('sync-btn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="btn-content">[ SYNCING... ]</span>';
 
-<script>
-    function triggerSync() {
-        const btn = document.getElementById('sync-btn');
-        btn.disabled = true;
-        btn.innerText = "Syncing...";
-        
-        // Optimistic log update
-        addLog("Manual Sync Triggered...");
+            addLog("Manual Sync Initiated...");
 
-        fetch('/api/trigger', { method: 'POST' })
-            .then(r => r.json())
-            .then(data => {
-                addLog("Response: " + data.message);
-                setTimeout(() => {
+            fetch('/api/trigger', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    addLog("Response: " + data.message);
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
+                    }, 2000);
+                })
+                .catch(err => {
+                    addLog("Error: " + err);
                     btn.disabled = false;
-                    btn.innerText = "Sync Now";
-                }, 2000);
-            })
-            .catch(err => {
-                addLog("Error triggering sync: " + err);
-                btn.disabled = false;
-                btn.innerText = "Sync Now";
-            });
-    }
+                    btn.innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
+                });
+        }
 
-    function addLog(message) {
-        const container = document.getElementById('log-container');
-        const div = document.createElement('div');
-        div.className = 'log-entry';
-        div.innerText = "> " + message;
-        container.prepend(div); // Add to top
-    }
+        function addLog(message) {
+            const container = document.getElementById('log-container');
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.innerText = "> " + message;
+            container.prepend(div);
+        }
 
-    function fetchLogs() {
-        fetch('/api/status')
-            .then(r => r.json())
-            .then(data => {
-                const container = document.getElementById('log-container');
-                
-                // Update Log View
-                // For efficiency in this demo, we just rebuild if needed or append. 
-                // Let's clear and rebuild for simplicity to match backend state exactly.
-                container.innerHTML = ''; 
-                data.logs.forEach(log => {
-                    const div = document.createElement('div');
-                    div.className = 'log-entry';
-                    div.innerText = "> " + log;
-                    container.appendChild(div);
+        function fetchLogs() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    // Update Logs
+                    const container = document.getElementById('log-container');
+                    container.innerHTML = '';
+                    if (data.logs.length === 0) {
+                        container.innerHTML = '<div class="log-entry">> No local logs.</div>';
+                    } else {
+                        data.logs.forEach((log) => {
+                            const div = document.createElement('div');
+                            div.className = 'log-entry';
+                            div.innerText = "> " + log;
+                            container.appendChild(div);
+                        });
+                    }
+
+                    // Update Status
+                    const statusEl = document.getElementById('api-status');
+                    statusEl.innerText = data.status;
+                    if (data.status === "RUNNING") {
+                        statusEl.className = "status-indicator status-running";
+                        document.getElementById('sync-btn').disabled = true;
+                        document.getElementById('sync-btn').innerHTML = '<span class="btn-content">[ RUNNING... ]</span>';
+                    } else {
+                        statusEl.className = "status-indicator status-idle";
+                        if (document.getElementById('sync-btn').innerText.includes("RUNNING")) {
+                            document.getElementById('sync-btn').disabled = false;
+                            document.getElementById('sync-btn').innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
+                        }
+                    }
+
+                    // Update Events
+                    const eventList = document.getElementById('event-list');
+                    eventList.innerHTML = '';
+
+                    if (data.events && data.events.length > 0) {
+                        data.events.forEach(event => {
+                            const li = document.createElement('li');
+                            li.className = 'event-item';
+
+                            const subjects = event.subjects ? event.subjects.join(', ') : 'GENERAL';
+                            const time = event.start_time ? new Date(event.start_time).toLocaleString() : 'TBD';
+
+                            li.innerHTML = `
+                                <div class="event-header">
+                                    <span class="event-title">${event.event_title}</span>
+                                    <span class="event-tag">${subjects}</span>
+                                </div>
+                                <div class="event-time">${time}</div>
+                                <div class="event-desc">${event.description || ''}</div>
+                            `;
+                            eventList.appendChild(li);
+                        });
+                    } else {
+                        eventList.innerHTML = '<li class="event-placeholder">> NO DATA FRAGMENTS DETECTED</li>';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('api-status').innerText = "DISCONNECTED";
+                    document.getElementById('api-status').className = "status-indicator status-offline";
                 });
 
-                // Update Status
-                const statusEl = document.getElementById('api-status');
-                if (data.status === "RUNNING") {
-                    statusEl.innerText = "RUNNING";
-                    statusEl.className = "status-online";
-                    document.getElementById('sync-btn').disabled = true;
-                    document.getElementById('sync-btn').innerText = "Running...";
-                } else {
-                    statusEl.innerText = "IDLE";
-                    statusEl.className = "status-online"; 
-                    if(document.getElementById('sync-btn').innerText === "Running...") {
-                         document.getElementById('sync-btn').disabled = false;
-                         document.getElementById('sync-btn').innerText = "Sync Now";
+            setTimeout(fetchLogs, 2000);
+        }
+
+        // Start Polling
+        fetchLogs();
+    </script>
+
+    <!-- 3D Visualization Logic -->
+    <script>
+        /**
+         * Initialize Socratic Snowman Orb
+         */
+        function initSnowmanOrb(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            // 1. Scene Setup
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(24, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.z = 13;
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, physicallyCorrectLights: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+            const resize = () => {
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                renderer.setSize(w, h);
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+            };
+            window.addEventListener('resize', resize);
+            resize();
+            // 2. Lighting
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const point1 = new THREE.PointLight(0xffeedd, 1.2); point1.position.set(5, 5, 5); scene.add(point1);
+            const point2 = new THREE.PointLight(0xddddff, 0.8); point2.position.set(-5, 5, 5); scene.add(point2);
+            const rim = new THREE.PointLight(0xffffff, 1.5); rim.position.set(0, 5, -5); scene.add(rim);
+            // 3. Object Group
+            const group = new THREE.Group();
+            scene.add(group);
+            // Helpers
+            const pNoise = (x, y, z) => Math.sin(x * 3.2 + Math.cos(y * 2.1)) * Math.cos(z * 1.8 + Math.sin(x * 1.5));
+            const createSnowTexture = () => {
+                const size = 512; const canvas = document.createElement('canvas');
+                canvas.width = size; canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#cccccc'; ctx.fillRect(0, 0, size, size);
+                for (let i = 0; i < 8000; i++) {
+                    const x = Math.random() * size; const y = Math.random() * size; const r = Math.random() * 1.5;
+                    ctx.fillStyle = Math.random() > 0.5 ? '#ffffff' : '#aaaaaa';
+                    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+                }
+                return new THREE.CanvasTexture(canvas);
+            };
+            // Body
+            const bodyGeo = new THREE.SphereGeometry(1.5, 128, 128);
+            const posAttribute = bodyGeo.attributes.position;
+            const vertex = new THREE.Vector3();
+            for (let i = 0; i < posAttribute.count; i++) {
+                vertex.fromBufferAttribute(posAttribute, i);
+                const n = pNoise(vertex.x, vertex.y, vertex.z);
+                vertex.multiplyScalar(1.0 + (n * 0.08));
+                posAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
+            }
+            bodyGeo.computeVertexNormals();
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, bumpMap: createSnowTexture(), bumpScale: 0.12 });
+            group.add(new THREE.Mesh(bodyGeo, bodyMat));
+            // Horns
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a3c31, roughness: 1.0 });
+            const createTwig = (length, thickness, depth) => {
+                if (depth <= 0) return new THREE.Group();
+                const tGroup = new THREE.Group();
+                const geo = new THREE.CylinderGeometry(thickness * 0.7, thickness, length, 5);
+                geo.translate(0, length / 2, 0);
+                const mesh = new THREE.Mesh(geo, woodMat);
+                mesh.rotation.z = (Math.random() - 0.5) * 0.2; mesh.rotation.x = (Math.random() - 0.5) * 0.2;
+                tGroup.add(mesh);
+                if (depth > 1) {
+                    const num = 1 + Math.floor(Math.random() * 2);
+                    for (let i = 0; i < num; i++) {
+                        const s = createTwig(length * 0.6, thickness * 0.7, depth - 1);
+                        s.position.y = length * (0.4 + Math.random() * 0.5);
+                        s.rotation.z = (Math.random() - 0.5) * 1.5; s.rotation.y = (Math.random() - 0.5) * 2.0;
+                        tGroup.add(s);
                     }
                 }
-            })
-            .catch(() => {
-                 const statusEl = document.getElementById('api-status');
-                 statusEl.innerText = "OFFLINE";
-                 statusEl.className = "status-offline";
-            });
-        
-        setTimeout(fetchLogs, 2000);
-    }
-
-    // Start polling
-    fetchLogs();
-</script>
-
+                return tGroup;
+            };
+            const h1 = createTwig(1.0, 0.08, 3); h1.position.set(-0.7, 1.1, 0); h1.rotation.z = 0.5; group.add(h1);
+            const h2 = createTwig(0.9, 0.09, 3); h2.position.set(0.7, 1.1, 0); h2.rotation.z = -0.5; group.add(h2);
+            // Eyes
+            const createButton = (c) => {
+                const b = new THREE.Group();
+                const mat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.4, metalness: 0.1 });
+                const rim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 16, 32), mat); rim.position.z = 0.03; b.add(rim);
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.05, 32), mat); base.rotation.x = Math.PI / 2; b.add(base);
+                const blk = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                for (let x = -1; x <= 1; x += 2) for (let y = -1; y <= 1; y += 2) {
+                    const h = new THREE.Mesh(new THREE.CircleGeometry(0.015, 8), blk); h.position.set(x * 0.04, y * 0.04, 0.055); b.add(h);
+                }
+                return b;
+            };
+            const eL = createButton(0x003366); eL.position.set(-0.4, 0.2, 1.65); eL.lookAt(0, 0, 5); group.add(eL);
+            const eR = createButton(0x006400); eR.position.set(0.4, 0.2, 1.65); eR.lookAt(0, 0, 5); group.add(eR);
+            // Nose
+            const cGeo = new THREE.ConeGeometry(0.12, 0.8, 16); cGeo.translate(0, 0.4, 0); cGeo.rotateX(Math.PI / 2);
+            const nose = new THREE.Mesh(cGeo, new THREE.MeshStandardMaterial({ color: 0xFF6600, roughness: 0.6 }));
+            nose.position.set(0, 0, 1.6); group.add(nose);
+            // Mouth
+            const sMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+            for (let i = 0; i < 6; i++) {
+                const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.04 + Math.random() * 0.04, 0), sMat);
+                const a = Math.PI + (i - 2.5) * 0.35;
+                s.position.set(Math.sin(a) * 0.6, -0.5 + Math.cos(a) * 0.25, 1.35);
+                s.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+                group.add(s);
+            }
+            // Animation
+            let mX = 0, mY = 0;
+            document.addEventListener('mousemove', (e) => { mX = (e.clientX / window.innerWidth) * 2 - 1; mY = -(e.clientY / window.innerHeight) * 2 + 1; });
+            const animate = () => {
+                requestAnimationFrame(animate);
+                group.position.y = -0.4 + Math.sin(Date.now() * 0.0015) * 0.05;
+                group.rotation.y += (mX * 0.8 - group.rotation.y) * 0.1;
+                group.rotation.x += (-mY * 0.7 - group.rotation.x) * 0.1;
+                renderer.render(scene, camera);
+            };
+            animate();
+        }
+        window.addEventListener('load', () => initSnowmanOrb('canvas-orb'));
+    </script>
 </body>
+
 </html>

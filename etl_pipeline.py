@@ -202,7 +202,7 @@ def load_to_calendar(service, event_json, dry_run=False):
     except Exception as e:
         return f"Calendar Insert Failed: {e}"
 
-def run_pipeline(log_callback=print):
+def run_pipeline(log_callback=print, event_callback=None):
     log_callback("Initializing ETL Pipeline...")
     
     try:
@@ -236,6 +236,9 @@ def run_pipeline(log_callback=print):
             # Load
             result = load_to_calendar(calendar_service, event_data)
             log_callback(f"Load Result: {result}")
+            
+            if event_callback:
+                event_callback(event_data)
         else:
             log_callback("Transform: No event detected in email.")
             
