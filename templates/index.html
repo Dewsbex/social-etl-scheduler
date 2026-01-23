@@ -3,117 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social ETL | Family Log-Parser</title>
+    <title>Social ETL Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-    <div class="scene-container">
-        <!-- Background Compass Dial -->
-        <div class="compass-dial"></div>
-        
-        <!-- Interactive Character -->
-        <div class="orb-character" onclick="openTerminal()" title="Click to access Terminal Log"></div>
-        
-        <!-- Holographic Status -->
-        <div class="hologram-status">
-            <div class="status-text" id="dashboard-status">SYSTEM IDLE</div>
-            <div style="font-size: 0.8rem; margin-top: 5px; color: #888;">NEXT RUN: <span id="next-run">14:00</span></div>
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Social ETL Scheduler</h2>
+        <div>
+            Status: <span id="api-status" class="status-offline">CHECKING...</span>
         </div>
     </div>
 
-    <!-- Terminal Overlay -->
-    <div class="terminal-overlay" id="terminal">
-        <div class="terminal-header">
-            <span>> SOCIAL_ETL_DAEMON_V2.0 [ORB_CORE]</span>
-            <button class="close-btn" onclick="closeTerminal()">[DISCONNECT]</button>
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Event Extraction Logs</span>
+            <button id="sync-btn" class="btn btn-primary btn-sm" onclick="triggerSync()">
+                Sync Now
+            </button>
         </div>
-        
-        <div class="terminal-grid">
-            <!-- Left Column: Raw Logs -->
-            <div class="col" id="raw-log">
-                <div class="col-title">RAW_PACKET_STREAM</div>
-                <!-- JS will inject logs here -->
-                <div class="log-entry">> CONNECTION ESTABLISHED...</div>
-                <div class="log-entry">> ORB ONLINE. LISTENING...</div>
+        <div class="card-body p-0">
+            <div id="log-container">
+                <div class="log-entry">> Initializing Social ETL Dashboard...</div>
+                <div class="log-entry">> Waiting for logs...</div>
             </div>
-
-            <!-- Right Column: Structured Data -->
-            <div class="col" id="structured-data">
-                <div class="col-title">STRUCTURED_OBJECT_BUFFER</div>
-                <!-- JS will inject JSON here -->
-                <div class="log-entry" style="color: #666;">[WAITING FOR PAYLOAD]</div>
-            </div>
-        </div>
-
-        <div class="action-bar">
-            <span>> SYSTEM_STATUS: <span style="color: var(--neon-blue);">ONLINE</span></span>
-            <button class="force-run-btn" onclick="triggerETL()">[INITIATE_FORCE_RUN]</button>
         </div>
     </div>
 
-    <script>
-        function openTerminal() {
-            document.getElementById('terminal').style.display = 'flex';
-            fetchLogs();
-        }
+    <div class="card">
+        <div class="card-header">Found Events</div>
+        <div class="card-body">
+            <p class="text-muted small">Recent events extracted from email will appear here.</p>
+            <ul id="event-list" class="list-group list-group-flush">
+                <!-- Events will be populated here -->
+            </ul>
+        </div>
+    </div>
+</div>
 
-        function closeTerminal() {
-            document.getElementById('terminal').style.display = 'none';
-        }
+<!-- Bootstrap Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-        function triggerETL() {
-            const btn = document.querySelector('.force-run-btn');
-            const originalText = btn.innerText;
-            btn.innerText = "[EXECUTING...]";
-            
-            fetch('/api/trigger', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    alert(data.message);
-                    btn.innerText = originalText;
-                })
-                .catch(err => {
-                    alert("Error: " + err);
-                    btn.innerText = originalText;
+<script>
+    function triggerSync() {
+        const btn = document.getElementById('sync-btn');
+        btn.disabled = true;
+        btn.innerText = "Syncing...";
+        
+        // Optimistic log update
+        addLog("Manual Sync Triggered...");
+
+        fetch('/api/trigger', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                addLog("Response: " + data.message);
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerText = "Sync Now";
+                }, 2000);
+            })
+            .catch(err => {
+                addLog("Error triggering sync: " + err);
+                btn.disabled = false;
+                btn.innerText = "Sync Now";
+            });
+    }
+
+    function addLog(message) {
+        const container = document.getElementById('log-container');
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.innerText = "> " + message;
+        container.prepend(div); // Add to top
+    }
+
+    function fetchLogs() {
+        fetch('/api/status')
+            .then(r => r.json())
+            .then(data => {
+                const container = document.getElementById('log-container');
+                
+                // Update Log View
+                // For efficiency in this demo, we just rebuild if needed or append. 
+                // Let's clear and rebuild for simplicity to match backend state exactly.
+                container.innerHTML = ''; 
+                data.logs.forEach(log => {
+                    const div = document.createElement('div');
+                    div.className = 'log-entry';
+                    div.innerText = "> " + log;
+                    container.appendChild(div);
                 });
-        }
 
-        function fetchLogs() {
-            // Poll for logs if terminal is open
-            if(document.getElementById('terminal').style.display === 'none') return;
-            
-            fetch('/api/status')
-                .then(r => r.json())
-                .then(data => {
-                    const logContainer = document.getElementById('raw-log');
-                    const currentLogs = logContainer.innerHTML;
-                    
-                    // Simple rebuild - optimize in V3 if needed
-                    let newHtml = '<div class="col-title">RAW_PACKET_STREAM</div>';
-                    data.logs.forEach(log => {
-                        newHtml += `<div class="log-entry">> ${log}</div>`;
-                    });
-                    
-                    if (logContainer.innerHTML !== newHtml) {
-                         logContainer.innerHTML = newHtml;
+                // Update Status
+                const statusEl = document.getElementById('api-status');
+                if (data.status === "RUNNING") {
+                    statusEl.innerText = "RUNNING";
+                    statusEl.className = "status-online";
+                    document.getElementById('sync-btn').disabled = true;
+                    document.getElementById('sync-btn').innerText = "Running...";
+                } else {
+                    statusEl.innerText = "IDLE";
+                    statusEl.className = "status-online"; 
+                    if(document.getElementById('sync-btn').innerText === "Running...") {
+                         document.getElementById('sync-btn').disabled = false;
+                         document.getElementById('sync-btn').innerText = "Sync Now";
                     }
+                }
+            })
+            .catch(() => {
+                 const statusEl = document.getElementById('api-status');
+                 statusEl.innerText = "OFFLINE";
+                 statusEl.className = "status-offline";
+            });
+        
+        setTimeout(fetchLogs, 2000);
+    }
 
-                    // Update Dashboard Status
-                    const statusEl = document.getElementById('dashboard-status');
-                    statusEl.innerText = data.status;
-                    
-                    if (data.status === "RUNNING") {
-                        statusEl.style.color = "var(--neon-green)";
-                        statusEl.style.textShadow = "0 0 10px var(--neon-green)";
-                    } else {
-                        statusEl.style.color = "var(--neon-blue)";
-                        statusEl.style.textShadow = "0 0 10px var(--neon-blue)";
-                    }
-                });
-            
-            setTimeout(fetchLogs, 2000);
-        }
-    </script>
+    // Start polling
+    fetchLogs();
+</script>
+
 </body>
 </html>
