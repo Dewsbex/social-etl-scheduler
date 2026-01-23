@@ -1,0 +1,206 @@
+:root {
+    --neon-blue: #00f3ff;
+    --neon-gold: #ffd700;
+    --industrial-dark: #121212;
+    --orb-glow: 0 0 20px rgba(0, 243, 255, 0.5);
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #050505;
+    background-image: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%);
+    color: white;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+/* Container for the 3D Scene */
+.scene-container {
+    position: relative;
+    width: 600px;
+    height: 600px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* The Compass Sundial Background */
+.compass-dial {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    background-image: url('compass_dial.png'); /* Asset to be placed in static */
+    background-size: cover;
+    border-radius: 50%;
+    animation: rotateDial 60s linear infinite;
+    z-index: 1;
+    opacity: 0.8;
+    filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.2));
+}
+
+@keyframes rotateDial {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* The Cheeky Horned Orb */
+.orb-character {
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    background-image: url('horned_orb.png'); /* Asset to be placed in static */
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 10;
+    cursor: pointer;
+    transition: transform 0.3s ease, filter 0.3s ease;
+    animation: floatOrb 4s ease-in-out infinite;
+    filter: drop-shadow(0 0 15px rgba(0, 243, 255, 0.3));
+}
+
+.orb-character:hover {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 30px rgba(0, 243, 255, 0.8));
+}
+
+@keyframes floatOrb {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+}
+
+/* Status Indicator (Holographic Projection) */
+.hologram-status {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    text-align: center;
+    font-family: 'Courier New', Courier, monospace;
+    color: var(--neon-blue);
+    text-shadow: 0 0 10px var(--neon-blue);
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 20px;
+    border: 1px solid var(--neon-blue);
+    border-radius: 5px;
+    box-shadow: inset 0 0 20px rgba(0, 243, 255, 0.1);
+    backdrop-filter: blur(5px);
+}
+
+.status-text {
+    font-size: 1.2rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+/* Terminal Overlay (Industrial Matrix Style) */
+.terminal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: none;
+    flex-direction: column;
+    padding: 30px;
+    box-sizing: border-box;
+    z-index: 100;
+    font-family: 'Courier New', Courier, monospace;
+    color: var(--neon-blue);
+}
+
+.terminal-header {
+    border-bottom: 2px solid var(--neon-blue);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-shadow: 0 0 5px var(--neon-blue);
+}
+
+.terminal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.col {
+    border: 1px solid #333;
+    padding: 15px;
+    background: rgba(10, 10, 10, 0.8);
+    overflow-y: auto;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+.col-title {
+    color: var(--neon-gold);
+    border-bottom: 1px dashed var(--neon-gold);
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.log-entry {
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+    border-left: 2px solid transparent;
+    padding-left: 5px;
+}
+
+.log-entry:hover {
+    border-left-color: var(--neon-blue);
+    background: rgba(0, 243, 255, 0.05);
+}
+
+.close-btn {
+    background: transparent;
+    color: var(--neon-gold);
+    border: 1px solid var(--neon-gold);
+    padding: 5px 15px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.close-btn:hover {
+    background: var(--neon-gold);
+    color: black;
+    box-shadow: 0 0 15px var(--neon-gold);
+}
+
+.action-bar {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.force-run-btn {
+    background: rgba(0, 243, 255, 0.1);
+    color: var(--neon-blue);
+    border: 1px solid var(--neon-blue);
+    padding: 10px 20px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    text-transform: uppercase;
+    transition: all 0.3s;
+}
+
+.force-run-btn:hover {
+    background: var(--neon-blue);
+    color: black;
+    box-shadow: 0 0 20px var(--neon-blue);
+}

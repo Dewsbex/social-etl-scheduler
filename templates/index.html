@@ -4,201 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Social ETL | Family Log-Parser</title>
-    <style>
-        :root {
-            --neon-green: #0f0;
-            --terminal-bg: #0a0a0a;
-            --dim-gray: #333;
-            --alert-red: #ff3333;
-            --cork-bg: #e0d5c1; /* Fallback */
-        }
-
-        body {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: #1a1a1a;
-            color: var(--neon-green);
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
-
-        /* Dashboard Card - Corkboard Metaphor */
-        .dashboard-card {
-            background: var(--cork-bg);
-            /* Add texture URL if available, purely CSS for now */
-            background-image: radial-gradient(#d0c5b1 15%, transparent 16%), radial-gradient(#d0c5b1 15%, transparent 16%);
-            background-size: 60px 60px;
-            background-position: 0 0, 30px 30px;
-            
-            border: 8px solid #5d4037;
-            padding: 20px;
-            width: 300px;
-            height: 200px;
-            box-shadow: 10px 10px 20px rgba(0,0,0,0.5);
-            position: relative;
-            transform: rotate(-2deg);
-            transition: transform 0.3s ease;
-            cursor: pointer;
-            z-index: 10;
-        }
-
-        .dashboard-card:hover {
-            transform: rotate(0deg) scale(1.05);
-        }
-
-        .pin {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: var(--alert-red);
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-        }
-
-        .card-content {
-            background: white;
-            padding: 15px;
-            height: 100%;
-            box-sizing: border-box;
-            color: black;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .card-title {
-            font-weight: bold;
-            font-size: 1.2rem;
-            text-transform: uppercase;
-            border-bottom: 2px solid black;
-            padding-bottom: 5px;
-        }
-
-        .status-text {
-            font-weight: bold;
-            color: #555;
-        }
-
-        .status-animate {
-            animation: blink 1.5s infinite;
-        }
-
-        @keyframes blink {
-            50% { opacity: 0.3; }
-        }
-
-        /* Terminal Interface (Hidden by default) */
-        .terminal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.9);
-            display: none; /* Flex when active */
-            flex-direction: column;
-            padding: 20px;
-            box-sizing: border-box;
-            z-index: 100;
-        }
-
-        .terminal-header {
-            border-bottom: 1px solid var(--neon-green);
-            background: var(--dim-gray);
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .terminal-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            flex-grow: 1;
-            padding-top: 20px;
-            height: 80vh;
-        }
-
-        .col {
-            border: 1px solid var(--dim-gray);
-            padding: 10px;
-            background: #000;
-            overflow-y: auto;
-            font-size: 0.9rem;
-        }
-
-        .col-title {
-            color: #fff;
-            background: var(--dim-gray);
-            padding: 5px;
-            margin: -10px -10px 10px -10px;
-            text-align: center;
-            font-weight: bold;
-        }
-
-        .log-entry {
-            margin-bottom: 5px;
-            border-bottom: 1px dotted #333;
-            padding-bottom: 2px;
-        }
-
-        .highlight-green { color: var(--neon-green); }
-        .highlight-red { color: var(--alert-red); }
-        
-        .json-block {
-            color: #aaa;
-        }
-
-        .close-btn {
-            background: var(--alert-red);
-            color: white;
-            border: none;
-            padding: 5px 15px;
-            cursor: pointer;
-            font-family: inherit;
-            font-weight: bold;
-        }
-
-        /* Terminal Typewriter Effect */
-        .cursor::after {
-            content: '█';
-            animation: blink-cursor 1s infinite;
-        }
-        
-        @keyframes blink-cursor {
-            50% { opacity: 0; }
-        }
-
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-    <!-- Dashboard Card -->
-    <div class="dashboard-card" onclick="openTerminal()">
-        <div class="pin"></div>
-        <div class="card-content">
-            <div class="card-title">Social ETL</div>
-            <div style="font-size: 0.9rem;">
-                <p><strong>Subjects:</strong> Benjamin, Tristan</p>
-                <p><strong>Next Run:</strong> <span id="next-run">14:00</span></p>
-            </div>
-            <div class="status-text status-animate" id="dashboard-status">PARSING...</div>
+    <div class="scene-container">
+        <!-- Background Compass Dial -->
+        <div class="compass-dial"></div>
+        
+        <!-- Interactive Character -->
+        <div class="orb-character" onclick="openTerminal()" title="Click to access Terminal Log"></div>
+        
+        <!-- Holographic Status -->
+        <div class="hologram-status">
+            <div class="status-text" id="dashboard-status">SYSTEM IDLE</div>
+            <div style="font-size: 0.8rem; margin-top: 5px; color: #888;">NEXT RUN: <span id="next-run">14:00</span></div>
         </div>
     </div>
 
     <!-- Terminal Overlay -->
     <div class="terminal-overlay" id="terminal">
         <div class="terminal-header">
-            <span>> SOCIAL_ETL_DAEMON_V1.0.exe</span>
-            <button class="close-btn" onclick="closeTerminal()">[X] CLOSE_CONNECTION</button>
+            <span>> SOCIAL_ETL_DAEMON_V2.0 [ORB_CORE]</span>
+            <button class="close-btn" onclick="closeTerminal()">[DISCONNECT]</button>
         </div>
         
         <div class="terminal-grid">
@@ -207,20 +35,20 @@
                 <div class="col-title">RAW_PACKET_STREAM</div>
                 <!-- JS will inject logs here -->
                 <div class="log-entry">> CONNECTION ESTABLISHED...</div>
-                <div class="log-entry">> LISTENING ON PORT 587...</div>
+                <div class="log-entry">> ORB ONLINE. LISTENING...</div>
             </div>
 
             <!-- Right Column: Structured Data -->
             <div class="col" id="structured-data">
                 <div class="col-title">STRUCTURED_OBJECT_BUFFER</div>
                 <!-- JS will inject JSON here -->
-                <div class="log-entry">[WAITING FOR PAYLOAD]</div>
+                <div class="log-entry" style="color: #666;">[WAITING FOR PAYLOAD]</div>
             </div>
         </div>
 
-        <div style="border-top: 1px solid var(--neon-green); padding: 10px; margin-top: 10px;">
-            > SYSTEM_STATUS: <span class="highlight-green">ONLINE</span> <span class="cursor"></span>
-            <button onclick="triggerETL()" style="float: right; background: transparent; border: 1px solid var(--neon-green); color: var(--neon-green); cursor: pointer;">[FORCE_RUN]</button>
+        <div class="action-bar">
+            <span>> SYSTEM_STATUS: <span style="color: var(--neon-blue);">ONLINE</span></span>
+            <button class="force-run-btn" onclick="triggerETL()">[INITIATE_FORCE_RUN]</button>
         </div>
     </div>
 
@@ -235,10 +63,19 @@
         }
 
         function triggerETL() {
+            const btn = document.querySelector('.force-run-btn');
+            const originalText = btn.innerText;
+            btn.innerText = "[EXECUTING...]";
+            
             fetch('/api/trigger', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
                     alert(data.message);
+                    btn.innerText = originalText;
+                })
+                .catch(err => {
+                    alert("Error: " + err);
+                    btn.innerText = originalText;
                 });
         }
 
@@ -250,23 +87,33 @@
                 .then(r => r.json())
                 .then(data => {
                     const logContainer = document.getElementById('raw-log');
-                    // Clear and rebuild for simple sync (optimize later)
-                    logContainer.innerHTML = '<div class="col-title">RAW_PACKET_STREAM</div>';
+                    const currentLogs = logContainer.innerHTML;
                     
+                    // Simple rebuild - optimize in V3 if needed
+                    let newHtml = '<div class="col-title">RAW_PACKET_STREAM</div>';
                     data.logs.forEach(log => {
-                        const div = document.createElement('div');
-                        div.className = 'log-entry';
-                        div.innerText = "> " + log;
-                        logContainer.appendChild(div);
+                        newHtml += `<div class="log-entry">> ${log}</div>`;
                     });
+                    
+                    if (logContainer.innerHTML !== newHtml) {
+                         logContainer.innerHTML = newHtml;
+                    }
 
                     // Update Dashboard Status
-                    document.getElementById('dashboard-status').innerText = data.status;
+                    const statusEl = document.getElementById('dashboard-status');
+                    statusEl.innerText = data.status;
+                    
+                    if (data.status === "RUNNING") {
+                        statusEl.style.color = "var(--neon-green)";
+                        statusEl.style.textShadow = "0 0 10px var(--neon-green)";
+                    } else {
+                        statusEl.style.color = "var(--neon-blue)";
+                        statusEl.style.textShadow = "0 0 10px var(--neon-blue)";
+                    }
                 });
             
             setTimeout(fetchLogs, 2000);
         }
-        
     </script>
 </body>
 </html>

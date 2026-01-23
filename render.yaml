@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: social-etl-scheduler
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false # User must provide this in Render Dashboard
+    # To run successfully, you must upload 'token.json' (generated locally)
+    # as a 'Secret File' in Render, mounted to /opt/render/project/src/token.json
