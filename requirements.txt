@@ -7,3 +7,4 @@ flask
 schedule
 python-dotenv
 gunicorn
+requests
