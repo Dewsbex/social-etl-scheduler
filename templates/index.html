@@ -27,6 +27,7 @@
         }
 
         /* --- THE ORB CONTAINER --- */
+        /* This keeps the aspect ratio locked so the face never drifts */
         .orb-stage {
             position: relative;
             width: var(--orb-size);
@@ -40,27 +41,31 @@
         .orb-hull {
             position: absolute;
             inset: 0;
-            background-image: url('https://github.com/Dewsbex/socratic-orb/blob/main/Blank%20Bot%20Dark%20Avenger.png?raw=true');
+            background-image: url('https://raw.githubusercontent.com/Dewsbex/Vibe-Station-Alpha/main/Blank%20Bot%20Dark%20Avenger.png');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
 
-            /* ALWAYS ON COLOR - NO GRAYSCALE */
-            filter: contrast(1.1) brightness(1.1);
+            /* THE COLOR POP LOGIC */
+            filter: grayscale(100%) contrast(1.2);
+            transition: filter 0.8s ease-out;
             z-index: 1;
+        }
+
+        /* Hovering anywhere on the screen triggers the color pop */
+        body:hover .orb-hull {
+            filter: grayscale(0%) contrast(1.0);
         }
 
         /* --- THE VFD FACE (Canvas) --- */
         #face-canvas {
             position: absolute;
             z-index: 2;
+            /* Sits ON TOP of the hull */
             width: 100%;
             height: 100%;
-            /* Glow effect applied here */
-            filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.5));
-            /* Opacity controlled by JS for Ignition Sequence */
-            opacity: 0;
-            transition: opacity 0.1s linear;
+            /* The face is ALWAYS colored, never grayscale */
+            filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.4));
         }
 
         /* --- UI OVERLAY --- */
@@ -77,36 +82,6 @@
             opacity: 0.5;
             letter-spacing: 0.2em;
         }
-
-        .fire-overlay {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 30%;
-            height: 100%;
-            background: radial-gradient(circle at 100% 50%, rgba(255, 100, 0, 0.2), transparent 70%);
-            mix-blend-mode: color-dodge;
-            pointer-events: none;
-            z-index: 15;
-            animation: flicker 4s infinite alternate;
-        }
-
-        @keyframes flicker {
-            0% {
-                opacity: 0.8;
-                transform: scaleX(1);
-            }
-
-            50% {
-                opacity: 0.6;
-                transform: scaleX(1.05);
-            }
-
-            100% {
-                opacity: 0.9;
-                transform: scaleX(0.95);
-            }
-        }
     </style>
 </head>
 
@@ -117,240 +92,210 @@
         <canvas id="face-canvas"></canvas>
     </div>
 
-    <div class="fire-overlay"></div>
     <div class="ui-layer">
-        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v5.2 [REPAIRED]
+        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE
     </div>
 
     <script>
         // --- CONFIGURATION ---
         const CONFIG = {
-            gridRes: 640,        // Hyper-Density
-            scale: 1.2,          // Calibrating (Reduced from 2.0)
-            trackingRange: 3,
+            gridRes: 128,        // High density micro-dots
+            scale: 0.45,         // Calibrated fit for the glass lens
+            trackingRange: 5,    // Eye movement limit
             colors: {
-                bg: '#000000',
-                glow: '#00ffff',
-                core: '#ffffff'
-            },
-            faceOffsetY: 60,     // Moved face down
-            mouthOffsetY: 50     // Moved mouth further down
+                bg: '#000000',   // Backing behind pixels (Solid state)
+                glow: '#00ffff', // High-voltage cyan
+                core: '#ffffff'  // White hot center
+            }
         };
 
         // --- SETUP ---
-        document.body.style.cursor = "url('static/digital_biscuit.png') 32 32, auto"; // Set cursor
-
         const canvas = document.getElementById('face-canvas');
         const stage = document.getElementById('stage');
         const ctx = canvas.getContext('2d');
 
-        // 1. Shapes Buffer
-        const shapeCanvas = document.createElement('canvas');
-        const sCtx = shapeCanvas.getContext('2d');
-
-        // 2. Pattern Cache
-        const patternCanvas = document.createElement('canvas');
-        const pCtx = patternCanvas.getContext('2d');
+        // Virtual buffer for drawing shapes before pixelating
+        const buffer = document.createElement('canvas');
+        buffer.width = CONFIG.gridRes;
+        buffer.height = CONFIG.gridRes;
+        const bCtx = buffer.getContext('2d');
 
         // State Variables
         let mouseX = 0, mouseY = 0;
         let smileFactor = 0;
         let targetSmile = 0;
-        let pupilPos = { x: 0, y: 0 };
-        let pupilVel = { x: 0, y: 0 };
-        let isEating = false;
-        let eatPhase = 0;
+        let eyePos = { x: 0, y: 0 };
+        let eyeVel = { x: 0, y: 0 };
 
-        // VISIBILITY STATE: Start ON (1.0) to guarantee visibility
-        let faceOpacity = 1.0;
-        let targetOpacity = 1.0;
-        let isFlickering = false;
-
-        // --- RESIZE & INIT ---
-        const init = () => {
-            const rect = stage.getBoundingClientRect();
-            if (rect.width === 0) return; // Not ready yet
-
+        // --- RESIZE HANDLER ---
+        const handleResize = () => {
+            // Retina scaling for sharpness
             const dpr = window.devicePixelRatio || 1;
+            const rect = stage.getBoundingClientRect();
 
-            // 1. Resize Main Canvas
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
+
             ctx.scale(dpr, dpr);
-
-            // 2. Resize Buffers (Critical: Match main canvas aspect/scale)
-            shapeCanvas.width = CONFIG.gridRes;
-            shapeCanvas.height = CONFIG.gridRes;
-
-            patternCanvas.width = canvas.width;  // Must match screen pixels for crisp dots
-            patternCanvas.height = canvas.height;
-            pCtx.scale(dpr, dpr);
-
-            // 3. Re-Render Pattern
-            const stageW = rect.width;
-            const stageH = rect.height;
-            const dotSize = stageW / CONFIG.gridRes;
-            const radius = (dotSize / 2) * 1.35;
-
-            pCtx.clearRect(0, 0, stageW, stageH);
-
-            for (let y = 0; y < CONFIG.gridRes; y++) {
-                const sy = y * dotSize + (dotSize / 2);
-                if (sy > stageH) break;
-
-                for (let x = 0; x < CONFIG.gridRes; x++) {
-                    const sx = x * dotSize + (dotSize / 2);
-
-                    // Glow
-                    pCtx.beginPath();
-                    pCtx.arc(sx, sy, radius, 0, Math.PI * 2);
-                    pCtx.fillStyle = CONFIG.colors.glow;
-                    pCtx.fill();
-
-                    // Core
-                    pCtx.beginPath();
-                    pCtx.arc(sx, sy, radius * 0.6, 0, Math.PI * 2);
-                    pCtx.fillStyle = CONFIG.colors.core;
-                    pCtx.fill();
-                }
-            }
         };
-
-        // Aggressive Initialization to ensure we catch layout
-        window.addEventListener('resize', init);
-        window.addEventListener('DOMContentLoaded', init);
-        window.addEventListener('load', init);
-        setTimeout(init, 500); // Fail-safe
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Init
 
         // --- INPUT TRACKING ---
         document.addEventListener('mousemove', (e) => {
-            targetOpacity = 1.0;
+            // Normalize mouse position (-1 to 1) from center of screen
             mouseX = (e.clientX / window.innerWidth) * 2 - 1;
             mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
-
-            // Check for Eating Interaction
-            // Use normalized coords: Mouth is roughly at (0, 0.2) in screen space due to offsets
-            // Simple distance check in normalized space
-            const dist = Math.hypot(mouseX, mouseY + 0.2);
-
-            if (dist < 0.25) {
-                targetSmile = 1.0; // Happy to eat
-                isEating = true;
-            } else {
-                targetSmile = 0.5; // Default friendly
-                isEating = false;
-            }
+            targetSmile = 1.0; // Smile when interacting
         });
 
-        document.addEventListener('mouseleave', () => {
-            targetSmile = 0.0;
-            isEating = false;
-            // Optionally fade out, but let's keep it visible for now to debug
-            targetOpacity = 0.5;
-        });
+        // Reset when mouse leaves window
+        document.addEventListener('mouseout', () => { targetSmile = 0.0; });
 
-        // --- RENDER LOOP ---
+        // --- THE RENDER LOOP ---
         const animate = () => {
             requestAnimationFrame(animate);
 
-            // 1. Logic
+            // 1. Physics & Interpolation
             smileFactor += (targetSmile - smileFactor) * 0.1;
-            faceOpacity += (targetOpacity - faceOpacity) * 0.1;
-            canvas.style.opacity = faceOpacity;
 
-            const pLimit = 4;
-            const targetX = Math.max(-1, Math.min(1, mouseX)) * pLimit;
-            const targetY = Math.max(-1, Math.min(1, -mouseY)) * pLimit;
-            pupilVel.x += (targetX - pupilPos.x) * 0.2;
-            pupilVel.y += (targetY - pupilPos.y) * 0.2;
-            pupilVel.x *= 0.7; pupilVel.y *= 0.7;
-            pupilPos.x += pupilVel.x; pupilPos.y += pupilVel.y;
+            // Eye Tracking Physics
+            const targetX = Math.max(-1, Math.min(1, mouseX)) * CONFIG.trackingRange;
+            const targetY = Math.max(-1, Math.min(1, -mouseY)) * CONFIG.trackingRange;
 
-            // 2. Draw Face Shapes (White) to Shape Buffer
-            sCtx.clearRect(0, 0, CONFIG.gridRes, CONFIG.gridRes);
-            sCtx.save();
+            eyeVel.x += (targetX - eyePos.x) * 0.1;
+            eyeVel.y += (targetY - eyePos.y) * 0.1;
+            eyeVel.x *= 0.8; // Friction
+            eyeVel.y *= 0.8;
+            eyePos.x += eyeVel.x;
+            eyePos.y += eyeVel.y;
 
-            // Apply Global Scale and Offset
-            sCtx.translate(CONFIG.gridRes / 2, (CONFIG.gridRes / 2) + CONFIG.faceOffsetY);
-            sCtx.scale(CONFIG.scale, CONFIG.scale);
-            sCtx.translate(-CONFIG.gridRes / 2, -CONFIG.gridRes / 2);
-            sCtx.fillStyle = '#FFF';
+            // 2. DRAW SHAPES TO VIRTUAL BUFFER
+            bCtx.clearRect(0, 0, CONFIG.gridRes, CONFIG.gridRes);
+            bCtx.save();
+
+            // Center & Scale
+            bCtx.translate(CONFIG.gridRes / 2, CONFIG.gridRes / 2);
+            bCtx.scale(CONFIG.scale, CONFIG.scale);
+            bCtx.translate(-CONFIG.gridRes / 2, -CONFIG.gridRes / 2);
+
+            bCtx.fillStyle = '#FFF';
+            bCtx.strokeStyle = '#FFF';
+            bCtx.lineCap = 'round';
 
             const cx = CONFIG.gridRes / 2;
-            const cy = CONFIG.gridRes * 0.48;
-            const eyeW = 16; const eyeH = 22; const eyeGap = 28; const pupilSize = 3.5;
+            const cy = CONFIG.gridRes * 0.48; // Optical center
 
-            // Eyes
+            // --> EYES (Symmetrical Vertical Pills)
+            const eyeW = 14; const eyeH = 20; const eyeGap = 28;
+
             [-1, 1].forEach(side => {
-                const eyeCx = cx + (eyeGap * side);
-                sCtx.beginPath();
-                sCtx.ellipse(eyeCx, cy, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
-                sCtx.fill();
-                // Pupil Hole
-                sCtx.globalCompositeOperation = 'destination-out';
-                sCtx.beginPath();
-                sCtx.arc(eyeCx + pupilPos.x, cy + pupilPos.y, pupilSize, 0, Math.PI * 2);
-                sCtx.fill();
-                sCtx.globalCompositeOperation = 'source-over';
+                bCtx.beginPath();
+                bCtx.ellipse(
+                    cx + (eyeGap * side) + eyePos.x,
+                    cy + eyePos.y,
+                    eyeW / 2, eyeH / 2,
+                    0, 0, Math.PI * 2
+                );
+                bCtx.fill();
             });
 
-            // Brows
-            sCtx.lineCap = 'round'; sCtx.lineWidth = 4;
-            const browLift = (smileFactor * 4) - (Math.abs(mouseY) * 2);
-            const browY = cy - 20 - browLift;
-            const browW = 24; const browAngle = smileFactor * 0.15;
+            // --> BROWS (Arched & Dampened)
+            const browY = cy - 20 + (eyePos.y * 0.7); // Dampened Y movement
+            const browW = 24;
+            const browAngle = smileFactor * 0.3;
+            bCtx.lineWidth = 5;
 
-            sCtx.strokeStyle = '#FFF'; // Ensure stroke is white
-            sCtx.save(); sCtx.translate(cx - eyeGap, browY); sCtx.rotate(-browAngle);
-            sCtx.beginPath(); sCtx.moveTo(-browW / 2, 4); sCtx.quadraticCurveTo(0, -2, browW / 2, 4); sCtx.stroke(); sCtx.restore();
-            sCtx.save(); sCtx.translate(cx + eyeGap, browY); sCtx.rotate(browAngle);
-            sCtx.beginPath(); sCtx.moveTo(-browW / 2, 4); sCtx.quadraticCurveTo(0, -2, browW / 2, 4); sCtx.stroke(); sCtx.restore();
+            // Left Brow
+            bCtx.save();
+            bCtx.translate(cx - eyeGap + eyePos.x, browY);
+            bCtx.rotate(-browAngle);
+            bCtx.beginPath();
+            bCtx.moveTo(-browW / 2, 4);
+            bCtx.quadraticCurveTo(0, -6, browW / 2, 4);
+            bCtx.stroke();
+            bCtx.restore();
 
-            // Mouth (Eating Logic)
-            const mouthY = cy + CONFIG.mouthOffsetY;
+            // Right Brow
+            bCtx.save();
+            bCtx.translate(cx + eyeGap + eyePos.x, browY);
+            bCtx.rotate(browAngle);
+            bCtx.beginPath();
+            bCtx.moveTo(-browW / 2, 4);
+            bCtx.quadraticCurveTo(0, -6, browW / 2, 4);
+            bCtx.stroke();
+            bCtx.restore();
+
+            // --> MOUTH (Wide Crescent)
+            const mouthY = cy + 28;
             const mouthW = 32;
+            const smileDepth = smileFactor * 14;
+            const skewY = (smileFactor > 0) ? -6 * smileFactor : 0; // Smirk lift
 
-            if (isEating) {
-                eatPhase += 0.4; // Chew speed
-                const chewHeight = Math.sin(eatPhase) * 10 + 12; // Opens and closes
-                sCtx.beginPath();
-                sCtx.ellipse(cx, mouthY, mouthW / 1.5, chewHeight, 0, 0, Math.PI * 2);
-                sCtx.fill();
+            if (smileFactor > 0.1) {
+                // The "Banana" Shape
+                bCtx.beginPath();
+                bCtx.moveTo(cx - mouthW, mouthY);
+                // Top Lip
+                bCtx.quadraticCurveTo(cx, mouthY + smileDepth, cx + mouthW, mouthY + skewY);
+                // Bottom Lip (Thicker center)
+                bCtx.quadraticCurveTo(cx, mouthY + smileDepth + 10, cx - mouthW, mouthY);
+                bCtx.fill();
             } else {
-                eatPhase = 0;
-                const smileDepth = smileFactor * 12;
-                if (smileFactor > 0.1) {
-                    sCtx.beginPath();
-                    sCtx.moveTo(cx - mouthW, mouthY);
-                    sCtx.quadraticCurveTo(cx, mouthY + smileDepth, cx + mouthW, mouthY);
-                    sCtx.quadraticCurveTo(cx, mouthY + smileDepth + 8, cx - mouthW, mouthY);
-                    sCtx.fill();
-                } else {
-                    sCtx.beginPath();
-                    sCtx.moveTo(cx - mouthW, mouthY);
-                    sCtx.quadraticCurveTo(cx, mouthY, cx + mouthW, mouthY);
-                    sCtx.stroke();
-                }
+                // Neutral Line
+                bCtx.lineWidth = 5;
+                bCtx.beginPath();
+                bCtx.moveTo(cx - mouthW, mouthY);
+                bCtx.quadraticCurveTo(cx, mouthY, cx + mouthW, mouthY);
+                bCtx.stroke();
             }
-            sCtx.restore();
 
-            // 3. Composite
+            bCtx.restore();
+
+            // 3. RENDER PIXELS TO SCREEN (Micro-Dot Array)
+            // Clear Screen
             ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
 
-            ctx.save();
-            ctx.scale(1 / window.devicePixelRatio, 1 / window.devicePixelRatio);
+            // Get pixel data
+            const data = bCtx.getImageData(0, 0, CONFIG.gridRes, CONFIG.gridRes).data;
+            const stageW = stage.clientWidth;
+            const dotSize = stageW / CONFIG.gridRes;
+            const radius = (dotSize / 2) * 1.15; // 15% overlap for solid look
 
-            // Draw Shape (Destination)
-            ctx.drawImage(shapeCanvas, 0, 0, canvas.width, canvas.height);
+            for (let y = 0; y < CONFIG.gridRes; y++) {
+                for (let x = 0; x < CONFIG.gridRes; x++) {
+                    const idx = (y * CONFIG.gridRes + x) * 4;
+                    // Check alpha channel
+                    if (data[idx + 3] > 100) {
+                        const sx = x * dotSize + (dotSize / 2);
+                        const sy = y * dotSize + (dotSize / 2);
 
-            // Mask with Pattern (Source-In)
-            ctx.globalCompositeOperation = 'source-in';
-            ctx.drawImage(patternCanvas, 0, 0);
+                        // Layer 1: Black Backing (Opacity)
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, radius * 1.2, 0, Math.PI * 2);
+                        ctx.fillStyle = CONFIG.colors.bg;
+                        ctx.fill();
 
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.restore();
+                        // Layer 2: Neon Glow
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+                        ctx.fillStyle = CONFIG.colors.glow;
+                        ctx.shadowColor = CONFIG.colors.glow;
+                        ctx.shadowBlur = dotSize * 0.8;
+                        ctx.fill();
+
+                        // Layer 3: White Core
+                        ctx.beginPath();
+                        ctx.shadowBlur = 0;
+                        ctx.arc(sx, sy, radius * 0.6, 0, Math.PI * 2);
+                        ctx.fillStyle = CONFIG.colors.core;
+                        ctx.fill();
+                    }
+                }
+            }
         };
 
+        // Start Engine
         animate();
     </script>
 </body>
