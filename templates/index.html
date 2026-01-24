@@ -46,10 +46,12 @@
         .socratic-v135-hull {
             position: absolute;
             inset: 0;
-            background-image: url('/static/socratic_hull_v135.png?v=135');
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
+            /* DIAGNOSTIC MODE: Background Disabled to prove image corruption */
+            /* background-image: url('/static/socratic_hull_v135.png?v=135'); */
+            background-color: #111;
+            /* Temporary dark grey to see bounds */
+            border: 1px solid #333;
+            /* Debug border */
             z-index: 1;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
@@ -93,7 +95,7 @@
     </div>
 
     <div class="socratic-v135-footer">
-        SYSTEM: ONLINE // ENGINE: v135.0 [CACHE-KILLER] // SOVEREIGN SENTINEL
+        SYSTEM: ONLINE // ENGINE: v140.0 [DIAGNOSTIC-NO-BG] // SOVEREIGN SENTINEL
     </div>
 
     <script>
