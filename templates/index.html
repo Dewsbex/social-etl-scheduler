@@ -117,6 +117,40 @@
         <canvas id="face-canvas"></canvas>
     </div>
 
+<<<<<<< HEAD
+=======
+    <style>
+        .fire-overlay {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 30%;
+            height: 100%;
+            background: radial-gradient(circle at 100% 50%, rgba(255, 100, 0, 0.2), transparent 70%);
+            mix-blend-mode: color-dodge;
+            pointer-events: none;
+            z-index: 15;
+            animation: flicker 4s infinite alternate;
+        }
+
+        @keyframes flicker {
+            0% {
+                opacity: 0.8;
+                transform: scaleX(1);
+            }
+
+            50% {
+                opacity: 0.6;
+                transform: scaleX(1.05);
+            }
+
+            100% {
+                opacity: 0.9;
+                transform: scaleX(0.95);
+            }
+        }
+    </style>
+>>>>>>> 2a9fa0d (v5.1 Interactive Feeding & Visual Polish)
     <div class="fire-overlay"></div>
     <div class="ui-layer">
         SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v5.1 [INTERACTIVE]

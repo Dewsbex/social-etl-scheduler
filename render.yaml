@@ -1,17 +1,13 @@
 services:
   - type: web
-    name: social-etl-scheduler
+    name: socratic-orb
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -b 0.0.0.0:10000 app:app
     envVars:
       - key: GEMINI_API_KEY
-        sync: false # User must provide this in Render Dashboard
+        sync: false
     disk:
       name: credentials
       mountPath: /var/data
       sizeGB: 1
-    # Note: credentials.json handling needs care. 
-    # Option 1: Base64 encode it into an ENV var and decode on start.
-    # Option 2: Use Render's 'Secret Files' feature (Standard/Pro).
-    # Option 3 (For Free Tier): Hack it by checking if ENV var exists and writing to file.
