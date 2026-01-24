@@ -82,29 +82,42 @@
             position: absolute;
             top: 0;
             right: 0;
-            width: 30%;
+            width: 40%;
             height: 100%;
-            background: radial-gradient(circle at 100% 50%, rgba(255, 100, 0, 0.2), transparent 70%);
-            mix-blend-mode: color-dodge;
+            /* Stronger Orange/Red Gradient */
+            background: radial-gradient(circle at 100% 60%, rgba(255, 60, 0, 0.4), rgba(255, 100, 0, 00) 70%);
+            mix-blend-mode: screen;
+            /* Screen is more visible on dark backgrounds than color-dodge */
             pointer-events: none;
             z-index: 15;
-            animation: flicker 4s infinite alternate;
+            filter: blur(20px);
+            animation: flicker 2s infinite alternate ease-in-out;
         }
 
         @keyframes flicker {
             0% {
+                opacity: 0.6;
+                transform: scale(1.0);
+            }
+
+            25% {
                 opacity: 0.8;
-                transform: scaleX(1);
+                transform: scale(1.02);
             }
 
             50% {
-                opacity: 0.6;
-                transform: scaleX(1.05);
+                opacity: 0.5;
+                transform: scale(0.98) skewY(2deg);
+            }
+
+            75% {
+                opacity: 0.7;
+                transform: scale(1.01);
             }
 
             100% {
                 opacity: 0.9;
-                transform: scaleX(0.95);
+                transform: scale(1.0);
             }
         }
     </style>
@@ -119,22 +132,22 @@
 
     <div class="fire-overlay"></div>
     <div class="ui-layer">
-        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v5.2 [REPAIRED]
+        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v5.3 [REFINED]
     </div>
 
     <script>
         // --- CONFIGURATION ---
         const CONFIG = {
-            gridRes: 640,        // Hyper-Density
-            scale: 1.2,          // Calibrating (Reduced from 2.0)
+            gridRes: 640,
+            scale: 1.2,
             trackingRange: 3,
             colors: {
                 bg: '#000000',
                 glow: '#00ffff',
                 core: '#ffffff'
             },
-            faceOffsetY: 60,     // Moved face down
-            mouthOffsetY: 50     // Moved mouth further down
+            faceOffsetY: 90,     // Moved face further down (was 60)
+            mouthOffsetY: 50
         };
 
         // --- SETUP ---
@@ -231,7 +244,7 @@
             // Check for Eating Interaction
             // Use normalized coords: Mouth is roughly at (0, 0.2) in screen space due to offsets
             // Simple distance check in normalized space
-            const dist = Math.hypot(mouseX, mouseY + 0.2);
+            const dist = Math.hypot(mouseX, mouseY + 0.3); // Adjusted check for lower face
 
             if (dist < 0.25) {
                 targetSmile = 1.0; // Happy to eat
@@ -294,10 +307,10 @@
                 sCtx.globalCompositeOperation = 'source-over';
             });
 
-            // Brows
+            // Brows - LOWERED
             sCtx.lineCap = 'round'; sCtx.lineWidth = 4;
             const browLift = (smileFactor * 4) - (Math.abs(mouseY) * 2);
-            const browY = cy - 20 - browLift;
+            const browY = cy - 14 - browLift; // Closer to eyes (was -20)
             const browW = 24; const browAngle = smileFactor * 0.15;
 
             sCtx.strokeStyle = '#FFF'; // Ensure stroke is white
