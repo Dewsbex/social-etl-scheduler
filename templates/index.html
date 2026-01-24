@@ -4,286 +4,354 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Socratic Snowman Scheduler</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <title>THE SOCRATIC ORB | STANDALONE</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg-color: #050505;
+            --orb-size: min(90vw, 90vh);
+            /* responsive scaling */
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg-color);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* --- THE ORB CONTAINER --- */
+        .orb-stage {
+            position: relative;
+            width: var(--orb-size);
+            height: var(--orb-size);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- THE ROBOT HULL (Image) --- */
+        .orb-hull {
+            position: absolute;
+            inset: 0;
+            background-image: url('https://github.com/Dewsbex/socratic-orb/blob/main/Blank%20Bot%20Dark%20Avenger.png?raw=true');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+
+            /* ALWAYS ON COLOR - NO GRAYSCALE */
+            filter: contrast(1.1) brightness(1.1);
+            z-index: 1;
+        }
+
+        /* --- THE VFD FACE (Canvas) --- */
+        #face-canvas {
+            position: absolute;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            /* Glow effect applied here */
+            filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.5));
+            /* Opacity controlled by JS for Ignition Sequence */
+            opacity: 0;
+            transition: opacity 0.1s linear;
+        }
+
+        /* --- UI OVERLAY --- */
+        .ui-layer {
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #444;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.5;
+            letter-spacing: 0.2em;
+        }
+
+        .fire-overlay {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 30%;
+            height: 100%;
+            background: radial-gradient(circle at 100% 50%, rgba(255, 100, 0, 0.2), transparent 70%);
+            mix-blend-mode: color-dodge;
+            pointer-events: none;
+            z-index: 15;
+            animation: flicker 4s infinite alternate;
+        }
+
+        @keyframes flicker {
+            0% {
+                opacity: 0.8;
+                transform: scaleX(1);
+            }
+
+            50% {
+                opacity: 0.6;
+                transform: scaleX(1.05);
+            }
+
+            100% {
+                opacity: 0.9;
+                transform: scaleX(0.95);
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-    <!-- 3D Background -->
-    <div id="canvas-orb"></div>
-
-    <!-- UI Overlay -->
-    <div class="ui-overlay">
-        <header class="top-bar">
-            <h1 class="glitch-text" data-text="SOCIAL ETL SCHEDULER">SOCIAL ETL SCHEDULER</h1>
-            <div class="status-panel">
-                STATUS: <span id="api-status" class="status-indicator">INITIALIZING</span>
-            </div>
-        </header>
-
-        <main class="dashboard-grid">
-            <!-- Left: Terminal Logs -->
-            <section class="terminal-panel">
-                <div class="panel-header">>> SYSTEM LOGS</div>
-                <div id="log-container" class="terminal-body">
-                    <div class="log-entry">> Initializing Socratic Core...</div>
-                    <div class="log-entry">> Establishing Uplink...</div>
-                </div>
-            </section>
-
-            <!-- Right: Controls & Events -->
-            <section class="control-panel">
-                <div class="panel-header">>> FOUND EVENTS</div>
-                <div id="events-container" class="events-body">
-                    <ul id="event-list">
-                        <!-- Events populated here -->
-                    </ul>
-                </div>
-
-                <div class="action-area">
-                    <button id="sync-btn" class="cyber-btn" onclick="triggerSync()">
-                        <span class="btn-content">[ INITIATE SYNC ]</span>
-                        <span class="btn-glitch"></span>
-                    </button>
-                </div>
-            </section>
-        </main>
+    <div class="orb-stage" id="stage">
+        <div class="orb-hull"></div>
+        <canvas id="face-canvas"></canvas>
     </div>
 
-    <!-- Application Logic -->
+    <div class="fire-overlay"></div>
+    <div class="ui-layer">
+        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v5.1 [INTERACTIVE]
+    </div>
+
     <script>
-        // --- API Interaction Logic ---
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            gridRes: 640,        // Hyper-Density
+            scale: 1.2,          // Calibrating (Reduced from 2.0)
+            trackingRange: 3,
+            colors: {
+                bg: '#000000',
+                glow: '#00ffff',
+                core: '#ffffff'
+            },
+            faceOffsetY: 60,     // Moved face down
+            mouthOffsetY: 50     // Moved mouth further down
+        };
 
-        function triggerSync() {
-            const btn = document.getElementById('sync-btn');
-            const originalText = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="btn-content">[ SYNCING... ]</span>';
+        // --- SETUP ---
+        document.body.style.cursor = "url('static/digital_biscuit.png') 32 32, auto"; // Set cursor
 
-            addLog("Manual Sync Initiated...");
+        const canvas = document.getElementById('face-canvas');
+        const stage = document.getElementById('stage');
+        const ctx = canvas.getContext('2d');
 
-            fetch('/api/trigger', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    addLog("Response: " + data.message);
-                    setTimeout(() => {
-                        btn.disabled = false;
-                        btn.innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
-                    }, 2000);
-                })
-                .catch(err => {
-                    addLog("Error: " + err);
-                    btn.disabled = false;
-                    btn.innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
-                });
-        }
+        // 1. Shapes Buffer
+        const shapeCanvas = document.createElement('canvas');
+        const sCtx = shapeCanvas.getContext('2d');
 
-        function addLog(message) {
-            const container = document.getElementById('log-container');
-            const div = document.createElement('div');
-            div.className = 'log-entry';
-            div.innerText = "> " + message;
-            container.prepend(div);
-        }
+        // 2. Pattern Cache
+        const patternCanvas = document.createElement('canvas');
+        const pCtx = patternCanvas.getContext('2d');
 
-        function fetchLogs() {
-            fetch('/api/status')
-                .then(r => r.json())
-                .then(data => {
-                    // Update Logs
-                    const container = document.getElementById('log-container');
-                    container.innerHTML = '';
-                    if (data.logs.length === 0) {
-                        container.innerHTML = '<div class="log-entry">> No local logs.</div>';
-                    } else {
-                        data.logs.forEach((log) => {
-                            const div = document.createElement('div');
-                            div.className = 'log-entry';
-                            div.innerText = "> " + log;
-                            container.appendChild(div);
-                        });
-                    }
+        // State Variables
+        let mouseX = 0, mouseY = 0;
+        let smileFactor = 0;
+        let targetSmile = 0;
+        let pupilPos = { x: 0, y: 0 };
+        let pupilVel = { x: 0, y: 0 };
+        let isEating = false;
+        let eatPhase = 0;
 
-                    // Update Status
-                    const statusEl = document.getElementById('api-status');
-                    statusEl.innerText = data.status;
-                    if (data.status === "RUNNING") {
-                        statusEl.className = "status-indicator status-running";
-                        document.getElementById('sync-btn').disabled = true;
-                        document.getElementById('sync-btn').innerHTML = '<span class="btn-content">[ RUNNING... ]</span>';
-                    } else {
-                        statusEl.className = "status-indicator status-idle";
-                        if (document.getElementById('sync-btn').innerText.includes("RUNNING")) {
-                            document.getElementById('sync-btn').disabled = false;
-                            document.getElementById('sync-btn').innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
-                        }
-                    }
+        // VISIBILITY STATE: Start ON (1.0) to guarantee visibility
+        let faceOpacity = 1.0;
+        let targetOpacity = 1.0;
+        let isFlickering = false;
 
-                    // Update Events
-                    const eventList = document.getElementById('event-list');
-                    eventList.innerHTML = '';
+        // --- RESIZE & INIT ---
+        const init = () => {
+            const rect = stage.getBoundingClientRect();
+            if (rect.width === 0) return; // Not ready yet
 
-                    if (data.events && data.events.length > 0) {
-                        data.events.forEach(event => {
-                            const li = document.createElement('li');
-                            li.className = 'event-item';
+            const dpr = window.devicePixelRatio || 1;
 
-                            const subjects = event.subjects ? event.subjects.join(', ') : 'GENERAL';
-                            const time = event.start_time ? new Date(event.start_time).toLocaleString() : 'TBD';
+            // 1. Resize Main Canvas
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
 
-                            li.innerHTML = `
-                                <div class="event-header">
-                                    <span class="event-title">${event.event_title}</span>
-                                    <span class="event-tag">${subjects}</span>
-                                </div>
-                                <div class="event-time">${time}</div>
-                                <div class="event-desc">${event.description || ''}</div>
-                            `;
-                            eventList.appendChild(li);
-                        });
-                    } else {
-                        eventList.innerHTML = '<li class="event-placeholder">> NO DATA FRAGMENTS DETECTED</li>';
-                    }
-                })
-                .catch(() => {
-                    document.getElementById('api-status').innerText = "DISCONNECTED";
-                    document.getElementById('api-status').className = "status-indicator status-offline";
-                });
+            // 2. Resize Buffers (Critical: Match main canvas aspect/scale)
+            shapeCanvas.width = CONFIG.gridRes;
+            shapeCanvas.height = CONFIG.gridRes;
 
-            setTimeout(fetchLogs, 2000);
-        }
+            patternCanvas.width = canvas.width;  // Must match screen pixels for crisp dots
+            patternCanvas.height = canvas.height;
+            pCtx.scale(dpr, dpr);
 
-        // Start Polling
-        fetchLogs();
-    </script>
+            // 3. Re-Render Pattern
+            const stageW = rect.width;
+            const stageH = rect.height;
+            const dotSize = stageW / CONFIG.gridRes;
+            const radius = (dotSize / 2) * 1.35;
 
-    <!-- 3D Visualization Logic -->
-    <script>
-        /**
-         * Initialize Socratic Snowman Orb
-         */
-        function initSnowmanOrb(containerId) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            // 1. Scene Setup
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(24, container.clientWidth / container.clientHeight, 0.1, 100);
-            camera.position.z = 13;
-            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, physicallyCorrectLights: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            container.appendChild(renderer.domElement);
-            const resize = () => {
-                const w = container.clientWidth;
-                const h = container.clientHeight;
-                renderer.setSize(w, h);
-                camera.aspect = w / h;
-                camera.updateProjectionMatrix();
-            };
-            window.addEventListener('resize', resize);
-            resize();
-            // 2. Lighting
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const point1 = new THREE.PointLight(0xffeedd, 1.2); point1.position.set(5, 5, 5); scene.add(point1);
-            const point2 = new THREE.PointLight(0xddddff, 0.8); point2.position.set(-5, 5, 5); scene.add(point2);
-            const rim = new THREE.PointLight(0xffffff, 1.5); rim.position.set(0, 5, -5); scene.add(rim);
-            // 3. Object Group
-            const group = new THREE.Group();
-            scene.add(group);
-            // Helpers
-            const pNoise = (x, y, z) => Math.sin(x * 3.2 + Math.cos(y * 2.1)) * Math.cos(z * 1.8 + Math.sin(x * 1.5));
-            const createSnowTexture = () => {
-                const size = 512; const canvas = document.createElement('canvas');
-                canvas.width = size; canvas.height = size;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#cccccc'; ctx.fillRect(0, 0, size, size);
-                for (let i = 0; i < 8000; i++) {
-                    const x = Math.random() * size; const y = Math.random() * size; const r = Math.random() * 1.5;
-                    ctx.fillStyle = Math.random() > 0.5 ? '#ffffff' : '#aaaaaa';
-                    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+            pCtx.clearRect(0, 0, stageW, stageH);
+
+            for (let y = 0; y < CONFIG.gridRes; y++) {
+                const sy = y * dotSize + (dotSize / 2);
+                if (sy > stageH) break;
+
+                for (let x = 0; x < CONFIG.gridRes; x++) {
+                    const sx = x * dotSize + (dotSize / 2);
+
+                    // Glow
+                    pCtx.beginPath();
+                    pCtx.arc(sx, sy, radius, 0, Math.PI * 2);
+                    pCtx.fillStyle = CONFIG.colors.glow;
+                    pCtx.fill();
+
+                    // Core
+                    pCtx.beginPath();
+                    pCtx.arc(sx, sy, radius * 0.6, 0, Math.PI * 2);
+                    pCtx.fillStyle = CONFIG.colors.core;
+                    pCtx.fill();
                 }
-                return new THREE.CanvasTexture(canvas);
-            };
-            // Body
-            const bodyGeo = new THREE.SphereGeometry(1.5, 128, 128);
-            const posAttribute = bodyGeo.attributes.position;
-            const vertex = new THREE.Vector3();
-            for (let i = 0; i < posAttribute.count; i++) {
-                vertex.fromBufferAttribute(posAttribute, i);
-                const n = pNoise(vertex.x, vertex.y, vertex.z);
-                vertex.multiplyScalar(1.0 + (n * 0.08));
-                posAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
             }
-            bodyGeo.computeVertexNormals();
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, bumpMap: createSnowTexture(), bumpScale: 0.12 });
-            group.add(new THREE.Mesh(bodyGeo, bodyMat));
-            // Horns
-            const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a3c31, roughness: 1.0 });
-            const createTwig = (length, thickness, depth) => {
-                if (depth <= 0) return new THREE.Group();
-                const tGroup = new THREE.Group();
-                const geo = new THREE.CylinderGeometry(thickness * 0.7, thickness, length, 5);
-                geo.translate(0, length / 2, 0);
-                const mesh = new THREE.Mesh(geo, woodMat);
-                mesh.rotation.z = (Math.random() - 0.5) * 0.2; mesh.rotation.x = (Math.random() - 0.5) * 0.2;
-                tGroup.add(mesh);
-                if (depth > 1) {
-                    const num = 1 + Math.floor(Math.random() * 2);
-                    for (let i = 0; i < num; i++) {
-                        const s = createTwig(length * 0.6, thickness * 0.7, depth - 1);
-                        s.position.y = length * (0.4 + Math.random() * 0.5);
-                        s.rotation.z = (Math.random() - 0.5) * 1.5; s.rotation.y = (Math.random() - 0.5) * 2.0;
-                        tGroup.add(s);
-                    }
-                }
-                return tGroup;
-            };
-            const h1 = createTwig(1.0, 0.08, 3); h1.position.set(-0.7, 1.1, 0); h1.rotation.z = 0.5; group.add(h1);
-            const h2 = createTwig(0.9, 0.09, 3); h2.position.set(0.7, 1.1, 0); h2.rotation.z = -0.5; group.add(h2);
+        };
+
+        // Aggressive Initialization to ensure we catch layout
+        window.addEventListener('resize', init);
+        window.addEventListener('DOMContentLoaded', init);
+        window.addEventListener('load', init);
+        setTimeout(init, 500); // Fail-safe
+
+        // --- INPUT TRACKING ---
+        document.addEventListener('mousemove', (e) => {
+            targetOpacity = 1.0;
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            // Check for Eating Interaction
+            // Use normalized coords: Mouth is roughly at (0, 0.2) in screen space due to offsets
+            // Simple distance check in normalized space
+            const dist = Math.hypot(mouseX, mouseY + 0.2);
+
+            if (dist < 0.25) {
+                targetSmile = 1.0; // Happy to eat
+                isEating = true;
+            } else {
+                targetSmile = 0.5; // Default friendly
+                isEating = false;
+            }
+        });
+
+        document.addEventListener('mouseleave', () => {
+            targetSmile = 0.0;
+            isEating = false;
+            // Optionally fade out, but let's keep it visible for now to debug
+            targetOpacity = 0.5;
+        });
+
+        // --- RENDER LOOP ---
+        const animate = () => {
+            requestAnimationFrame(animate);
+
+            // 1. Logic
+            smileFactor += (targetSmile - smileFactor) * 0.1;
+            faceOpacity += (targetOpacity - faceOpacity) * 0.1;
+            canvas.style.opacity = faceOpacity;
+
+            const pLimit = 4;
+            const targetX = Math.max(-1, Math.min(1, mouseX)) * pLimit;
+            const targetY = Math.max(-1, Math.min(1, -mouseY)) * pLimit;
+            pupilVel.x += (targetX - pupilPos.x) * 0.2;
+            pupilVel.y += (targetY - pupilPos.y) * 0.2;
+            pupilVel.x *= 0.7; pupilVel.y *= 0.7;
+            pupilPos.x += pupilVel.x; pupilPos.y += pupilVel.y;
+
+            // 2. Draw Face Shapes (White) to Shape Buffer
+            sCtx.clearRect(0, 0, CONFIG.gridRes, CONFIG.gridRes);
+            sCtx.save();
+
+            // Apply Global Scale and Offset
+            sCtx.translate(CONFIG.gridRes / 2, (CONFIG.gridRes / 2) + CONFIG.faceOffsetY);
+            sCtx.scale(CONFIG.scale, CONFIG.scale);
+            sCtx.translate(-CONFIG.gridRes / 2, -CONFIG.gridRes / 2);
+            sCtx.fillStyle = '#FFF';
+
+            const cx = CONFIG.gridRes / 2;
+            const cy = CONFIG.gridRes * 0.48;
+            const eyeW = 16; const eyeH = 22; const eyeGap = 28; const pupilSize = 3.5;
+
             // Eyes
-            const createButton = (c) => {
-                const b = new THREE.Group();
-                const mat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.4, metalness: 0.1 });
-                const rim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 16, 32), mat); rim.position.z = 0.03; b.add(rim);
-                const base = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.05, 32), mat); base.rotation.x = Math.PI / 2; b.add(base);
-                const blk = new THREE.MeshBasicMaterial({ color: 0x000000 });
-                for (let x = -1; x <= 1; x += 2) for (let y = -1; y <= 1; y += 2) {
-                    const h = new THREE.Mesh(new THREE.CircleGeometry(0.015, 8), blk); h.position.set(x * 0.04, y * 0.04, 0.055); b.add(h);
+            [-1, 1].forEach(side => {
+                const eyeCx = cx + (eyeGap * side);
+                sCtx.beginPath();
+                sCtx.ellipse(eyeCx, cy, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
+                sCtx.fill();
+                // Pupil Hole
+                sCtx.globalCompositeOperation = 'destination-out';
+                sCtx.beginPath();
+                sCtx.arc(eyeCx + pupilPos.x, cy + pupilPos.y, pupilSize, 0, Math.PI * 2);
+                sCtx.fill();
+                sCtx.globalCompositeOperation = 'source-over';
+            });
+
+            // Brows
+            sCtx.lineCap = 'round'; sCtx.lineWidth = 4;
+            const browLift = (smileFactor * 4) - (Math.abs(mouseY) * 2);
+            const browY = cy - 20 - browLift;
+            const browW = 24; const browAngle = smileFactor * 0.15;
+
+            sCtx.strokeStyle = '#FFF'; // Ensure stroke is white
+            sCtx.save(); sCtx.translate(cx - eyeGap, browY); sCtx.rotate(-browAngle);
+            sCtx.beginPath(); sCtx.moveTo(-browW / 2, 4); sCtx.quadraticCurveTo(0, -2, browW / 2, 4); sCtx.stroke(); sCtx.restore();
+            sCtx.save(); sCtx.translate(cx + eyeGap, browY); sCtx.rotate(browAngle);
+            sCtx.beginPath(); sCtx.moveTo(-browW / 2, 4); sCtx.quadraticCurveTo(0, -2, browW / 2, 4); sCtx.stroke(); sCtx.restore();
+
+            // Mouth (Eating Logic)
+            const mouthY = cy + CONFIG.mouthOffsetY;
+            const mouthW = 32;
+
+            if (isEating) {
+                eatPhase += 0.4; // Chew speed
+                const chewHeight = Math.sin(eatPhase) * 10 + 12; // Opens and closes
+                sCtx.beginPath();
+                sCtx.ellipse(cx, mouthY, mouthW / 1.5, chewHeight, 0, 0, Math.PI * 2);
+                sCtx.fill();
+            } else {
+                eatPhase = 0;
+                const smileDepth = smileFactor * 12;
+                if (smileFactor > 0.1) {
+                    sCtx.beginPath();
+                    sCtx.moveTo(cx - mouthW, mouthY);
+                    sCtx.quadraticCurveTo(cx, mouthY + smileDepth, cx + mouthW, mouthY);
+                    sCtx.quadraticCurveTo(cx, mouthY + smileDepth + 8, cx - mouthW, mouthY);
+                    sCtx.fill();
+                } else {
+                    sCtx.beginPath();
+                    sCtx.moveTo(cx - mouthW, mouthY);
+                    sCtx.quadraticCurveTo(cx, mouthY, cx + mouthW, mouthY);
+                    sCtx.stroke();
                 }
-                return b;
-            };
-            const eL = createButton(0x003366); eL.position.set(-0.4, 0.2, 1.65); eL.lookAt(0, 0, 5); group.add(eL);
-            const eR = createButton(0x006400); eR.position.set(0.4, 0.2, 1.65); eR.lookAt(0, 0, 5); group.add(eR);
-            // Nose
-            const cGeo = new THREE.ConeGeometry(0.12, 0.8, 16); cGeo.translate(0, 0.4, 0); cGeo.rotateX(Math.PI / 2);
-            const nose = new THREE.Mesh(cGeo, new THREE.MeshStandardMaterial({ color: 0xFF6600, roughness: 0.6 }));
-            nose.position.set(0, 0, 1.6); group.add(nose);
-            // Mouth
-            const sMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
-            for (let i = 0; i < 6; i++) {
-                const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.04 + Math.random() * 0.04, 0), sMat);
-                const a = Math.PI + (i - 2.5) * 0.35;
-                s.position.set(Math.sin(a) * 0.6, -0.5 + Math.cos(a) * 0.25, 1.35);
-                s.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-                group.add(s);
             }
-            // Animation
-            let mX = 0, mY = 0;
-            document.addEventListener('mousemove', (e) => { mX = (e.clientX / window.innerWidth) * 2 - 1; mY = -(e.clientY / window.innerHeight) * 2 + 1; });
-            const animate = () => {
-                requestAnimationFrame(animate);
-                group.position.y = -0.4 + Math.sin(Date.now() * 0.0015) * 0.05;
-                group.rotation.y += (mX * 0.8 - group.rotation.y) * 0.1;
-                group.rotation.x += (-mY * 0.7 - group.rotation.x) * 0.1;
-                renderer.render(scene, camera);
-            };
-            animate();
-        }
-        window.addEventListener('load', () => initSnowmanOrb('canvas-orb'));
+            sCtx.restore();
+
+            // 3. Composite
+            ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+
+            ctx.save();
+            ctx.scale(1 / window.devicePixelRatio, 1 / window.devicePixelRatio);
+
+            // Draw Shape (Destination)
+            ctx.drawImage(shapeCanvas, 0, 0, canvas.width, canvas.height);
+
+            // Mask with Pattern (Source-In)
+            ctx.globalCompositeOperation = 'source-in';
+            ctx.drawImage(patternCanvas, 0, 0);
+
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.restore();
+        };
+
+        animate();
     </script>
 </body>
 
