@@ -40,21 +40,22 @@
             align-items: center;
             justify-content: center;
             background: #000;
+            border-radius: 50%;
+            /* Temp circular mask */
         }
 
         /* --- THE HULL --- */
         .v125-hull {
             position: absolute;
             inset: 0;
-            /* LOADING THE LOCAL ASSET AS REQUESTED */
+            /* FALLBACK COLOR IN CASE IMAGE 404s */
+            background-color: #111;
             background-image: url('/static/socratic_hull_v135.png?v=125.1');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
             z-index: 1;
-            /* Optimize for sharpness */
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: crisp-edges;
+            pointer-events: none;
         }
 
         /* --- THE FACE CANVAS --- */
@@ -95,7 +96,7 @@
     </div>
 
     <div class="v125-footer">
-        SYSTEM: ONLINE // ENGINE: v125.1-FINAL [ANTIGRAVITY]
+        SYSTEM: ONLINE // ENGINE: v125.1-FIXED [STABLE]
     </div>
 
     <script>
@@ -128,6 +129,12 @@
         gridCanvas.height = SPEC.grid.res;
         const gCtx = gridCanvas.getContext('2d');
 
+        // LOGIC BUFFER (MOVED OUTSIDE RENDER LOOP)
+        const logicCanvas = document.createElement('canvas');
+        logicCanvas.width = SPEC.logic;
+        logicCanvas.height = SPEC.logic;
+        const lCtx = logicCanvas.getContext('2d');
+
         // PHYSICS STATE
         const state = {
             mouse: { x: 160, y: 320 }, // Default Low
@@ -146,15 +153,14 @@
             gCtx.fillStyle = SPEC.grid.bg;
             gCtx.fillRect(0, 0, SPEC.grid.res, SPEC.grid.res);
 
+            // Optimization: Only draw dots, don't overdraw
             for (let y = 0; y < SPEC.grid.res; y += step) {
                 for (let x = 0; x < SPEC.grid.res; x += step) {
-                    // Cyan Glow
                     gCtx.beginPath();
                     gCtx.arc(x + step / 2, y + step / 2, radius * 0.98, 0, Math.PI * 2);
                     gCtx.fillStyle = SPEC.grid.glow;
                     gCtx.fill();
 
-                    // White Core
                     gCtx.beginPath();
                     gCtx.arc(x + step / 2, y + step / 2, radius * 0.90, 0, Math.PI * 2);
                     gCtx.fillStyle = SPEC.grid.core;
@@ -162,33 +168,38 @@
                 }
             }
         };
-        generateGrid(); // Run Once
+        generateGrid();
 
         // --- 4. RESIZE HANDLER ---
         const handleResize = () => {
             const dpr = window.devicePixelRatio || 1;
             const rect = stage.getBoundingClientRect();
+
+            // Safety check for 0-size (hidden) elements
+            if (rect.width === 0 || rect.height === 0) return;
+
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
             ctx.scale(dpr, dpr);
-            // Re-apply smoothing if reset
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
+            ctx.imageSmoothingEnabled = false; // Keep it retro/sharp
         };
         window.addEventListener('resize', handleResize);
-        handleResize();
+
+        // Ensure layout is ready before first resize
+        setTimeout(handleResize, 50);
 
         // --- 5. INPUT HANDLING ---
         document.addEventListener('mousemove', (e) => {
             state.isIdle = false;
             state.targetSmile = 1.0;
 
-            // Map Mouse to Logical 0-320 Space (relative to viewport)
-            // Note: Spec asked for 0-320. We map screen 0-W to logic 0-320
-            const rx = e.clientX / window.innerWidth;
-            const ry = e.clientY / window.innerHeight;
-            state.mouse.x = rx * SPEC.logic;
-            state.mouse.y = ry * SPEC.logic;
+            // Accurate Mouse Mapping
+            const rect = stage.getBoundingClientRect();
+            const relX = (e.clientX - rect.left) / rect.width;
+            const relY = (e.clientY - rect.top) / rect.height;
+
+            state.mouse.x = relX * SPEC.logic;
+            state.mouse.y = relY * SPEC.logic;
         });
 
         document.addEventListener('mouseleave', () => {
@@ -201,62 +212,54 @@
         // --- 6. RENDER FRAME ---
         const render = () => {
             // A. PHYSICS STEP
-            // Smile Lerp
             state.smile += (state.targetSmile - state.smile) * 0.12;
 
             // Eye Convergence Logic
             const solveEye = (eyeCX, eyeCY, currentPos) => {
-                // Base Vector to Mouse
                 let dx = state.mouse.x - eyeCX;
                 let dy = state.mouse.y - eyeCY;
 
-                // Normalize direction
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 const nx = dx / (dist || 1);
                 const ny = dy / (dist || 1);
 
-                // Convergence Check
                 const distFromCenter = Math.abs(state.mouse.x - SPEC.center.x);
                 let convergenceX = 0;
                 if (distFromCenter < 40) {
                     const strength = 1.0 - (distFromCenter / 40);
-                    // Add inward convergence
                     convergenceX = (eyeCX < SPEC.center.x) ? 16 * strength : -16 * strength;
                 }
 
-                // Target Pupil Offset (Max 11px radius)
                 const lookMag = Math.min(dist, 11);
                 const targetX = (nx * lookMag) + convergenceX;
                 const targetY = (ny * lookMag);
 
-                // Spring Physics
                 currentPos.vx += (targetX - currentPos.x) * 0.2;
                 currentPos.vy += (targetY - currentPos.y) * 0.2;
-                currentPos.vx *= 0.7; // Drag
+                currentPos.vx *= 0.7;
                 currentPos.vy *= 0.7;
                 currentPos.x += currentPos.vx;
                 currentPos.y += currentPos.vy;
             };
 
-            // Eye Centers
-            const leftEyeCX = 125 + SPEC.center.x - 160; // 125
-            const rightEyeCX = 195 + SPEC.center.x - 160; // 195
+            const leftEyeCX = 125 + SPEC.center.x - 160;
+            const rightEyeCX = 195 + SPEC.center.x - 160;
             const eyeCY = SPEC.center.y;
 
             solveEye(125, 153.6, state.pupilL);
             solveEye(195, 153.6, state.pupilR);
 
 
-            // B. DRAWING PIPELINE
-            const logicCanvas = document.createElement('canvas'); // Temp Logic Buffer
-            logicCanvas.width = SPEC.logic;
-            logicCanvas.height = SPEC.logic;
-            const lCtx = logicCanvas.getContext('2d');
+            // B. DRAWING PIPELINE (Reuse Buffer!)
+            // Clear Logic Buffer
+            lCtx.globalCompositeOperation = 'source-over';
+            lCtx.clearRect(0, 0, SPEC.logic, SPEC.logic);
 
             // 1. Draw White Shapes (Source)
             lCtx.fillStyle = '#FFFFFF';
             lCtx.strokeStyle = '#FFFFFF';
             lCtx.lineCap = 'round';
+            lCtx.save(); // Save context state before transforms
             lCtx.translate(SPEC.center.x, SPEC.center.y);
             lCtx.scale(SPEC.scale, SPEC.scale);
             lCtx.translate(-SPEC.center.x, -SPEC.center.y);
@@ -264,10 +267,10 @@
             const cx = SPEC.center.x;
             const cy = SPEC.center.y;
 
-            // Eyes (Containers)
+            // Eyes
             [125, 195].forEach((ex) => {
                 lCtx.beginPath();
-                lCtx.ellipse(ex, cy, 16, 22, 0, 0, Math.PI * 2); // 32x44 -> rad 16x22
+                lCtx.ellipse(ex, cy, 16, 22, 0, 0, Math.PI * 2);
                 lCtx.fill();
             });
 
@@ -276,36 +279,34 @@
             const arch = state.smile * -8;
             [-1, 1].forEach(side => {
                 lCtx.save();
-                // Pivot around brow center
                 const bx = cx + (35 * side);
                 lCtx.translate(bx, browY);
-                // No rotation in spec per se, just arch. But slight tilt is implied by organics.
-                // Using quadratic curve for arch
-                lCtx.lineWidth = 6; // Thick center
+                lCtx.lineWidth = 6;
                 lCtx.beginPath();
-                lCtx.moveTo(-14, 4); // 28 width approx
+                lCtx.moveTo(-14, 4);
                 lCtx.quadraticCurveTo(0, -4 + arch, 14, 4);
                 lCtx.stroke();
                 lCtx.restore();
             });
 
-            // Mouth (Tapered)
+            // Mouth
             const mouthY = 187.6;
             const mw = 42;
             const mt = 12 + (Math.abs(state.smile) * 10);
             const mCurve = (state.smile > 0) ? state.smile * 25 : state.smile * 35;
 
             lCtx.beginPath();
-            lCtx.moveTo(cx - mw, mouthY); // Left Corner (Sharp)
-            // Top Curve
+            lCtx.moveTo(cx - mw, mouthY);
             lCtx.quadraticCurveTo(cx, mouthY + mCurve - mt, cx + mw, mouthY);
-            // Bottom Curve
             lCtx.quadraticCurveTo(cx, mouthY + mCurve + mt, cx - mw, mouthY);
             lCtx.fill();
+
+            lCtx.restore(); // Restore scale/translate
 
 
             // 2. Composite Grid (Mask)
             lCtx.globalCompositeOperation = 'source-in';
+            // Draw high-res grid into low-res buffer
             lCtx.drawImage(gridCanvas, 0, 0, SPEC.logic, SPEC.logic);
 
             // 3. Cut Pupils (Destination Out)
@@ -323,8 +324,11 @@
 
 
             // C. FINAL RENDER TO SCREEN
-            ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
-            // Scale logic buffer to screen
+            // Clear Screen
+            const dpr = window.devicePixelRatio || 1;
+            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+            // Draw Logic Buffer Scaled to Stage
             ctx.drawImage(logicCanvas,
                 0, 0, SPEC.logic, SPEC.logic,
                 0, 0, stage.clientWidth, stage.clientHeight
