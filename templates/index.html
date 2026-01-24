@@ -41,13 +41,12 @@
         .orb-hull {
             position: absolute;
             inset: 0;
-            /* Using robust RAW URL with cache-busting */
-            background-image: url('https://raw.githubusercontent.com/Dewsbex/socratic-orb/main/Trim%20Bot%20Dark%20Avenger.png?v=2');
+            /* Using relative static path for Render compatibility */
+            background-image: url('/static/Trim%20Bot%20Dark%20Avenger.png');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
             background-color: transparent;
-            /* Fallback */
 
             /* THE COLOR POP LOGIC */
             filter: grayscale(100%) contrast(1.2);
@@ -98,7 +97,7 @@
     </div>
 
     <div class="ui-layer">
-        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v7.1 [TRIM-BOT-FIX]
+        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v7.2 [ASSET-SERVED]
     </div>
 
     <script>
