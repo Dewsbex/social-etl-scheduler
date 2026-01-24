@@ -11,7 +11,6 @@
         :root {
             --bg-color: #050505;
             --orb-size: min(90vw, 90vh);
-            /* responsive scaling */
         }
 
         body {
@@ -26,7 +25,6 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
-        /* --- THE ORB CONTAINER --- */
         .orb-stage {
             position: relative;
             width: var(--orb-size);
@@ -36,7 +34,6 @@
             justify-content: center;
         }
 
-        /* --- THE ROBOT HULL (Image) --- */
         .orb-hull {
             position: absolute;
             inset: 0;
@@ -44,53 +41,59 @@
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
-
-            /* ALWAYS ON COLOR - NO GRAYSCALE */
             filter: contrast(1.1) brightness(1.1);
             z-index: 1;
         }
 
-        /* --- THE VFD FACE (Canvas) --- */
         #face-canvas {
             position: absolute;
             z-index: 2;
             width: 100%;
             height: 100%;
-            /* Glow effect applied here */
             filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.5));
-            /* Opacity controlled by JS for Ignition Sequence */
             opacity: 0;
             transition: opacity 0.1s linear;
         }
 
-        /* --- UI OVERLAY --- */
         .ui-layer {
             position: absolute;
-            bottom: 40px;
+            top: 20px;
+            /* MOVED TO TOP FOR VISIBILITY */
             left: 0;
             width: 100%;
             text-align: center;
-            color: #444;
-            font-size: 12px;
+            color: #ff0000;
+            /* BRIGHT RED */
+            text-shadow: 0 0 10px #ff0000, 0 0 20px #000;
+            font-weight: bold;
+            font-size: 16px;
             pointer-events: none;
-            z-index: 10;
-            opacity: 0.5;
+            z-index: 100;
             letter-spacing: 0.2em;
+            animation: pulse 2s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from {
+                opacity: 0.6;
+            }
+
+            to {
+                opacity: 1.0;
+            }
         }
 
         .fire-overlay {
             position: absolute;
             top: 0;
             right: 0;
-            width: 40%;
+            width: 45%;
             height: 100%;
-            /* Stronger Orange/Red Gradient */
-            background: radial-gradient(circle at 100% 60%, rgba(255, 60, 0, 0.4), rgba(255, 100, 0, 00) 70%);
+            background: radial-gradient(circle at 100% 60%, rgba(255, 60, 0, 0.45), rgba(255, 100, 0, 00) 75%);
             mix-blend-mode: screen;
-            /* Screen is more visible on dark backgrounds than color-dodge */
             pointer-events: none;
             z-index: 15;
-            filter: blur(20px);
+            filter: blur(25px);
             animation: flicker 2s infinite alternate ease-in-out;
         }
 
@@ -100,24 +103,14 @@
                 transform: scale(1.0);
             }
 
-            25% {
-                opacity: 0.8;
-                transform: scale(1.02);
-            }
-
             50% {
-                opacity: 0.5;
-                transform: scale(0.98) skewY(2deg);
-            }
-
-            75% {
-                opacity: 0.7;
-                transform: scale(1.01);
+                opacity: 0.9;
+                transform: scale(1.05) skewY(1deg);
             }
 
             100% {
-                opacity: 0.9;
-                transform: scale(1.0);
+                opacity: 0.7;
+                transform: scale(0.98);
             }
         }
     </style>
@@ -131,13 +124,11 @@
     </div>
 
     <div class="fire-overlay"></div>
-    <div class="ui-layer"
-        style="color: #ff0000; text-shadow: 0 0 10px #ff0000; font-weight: bold; font-size: 14px; opacity: 1.0;">
-        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v5.5 [DEBUG: RED]
+    <div class="ui-layer">
+        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v5.6 [VERIFIED]
     </div>
 
     <script>
-        // --- CONFIGURATION ---
         const CONFIG = {
             gridRes: 640,
             scale: 1.2,
@@ -147,171 +138,94 @@
                 glow: '#00ffff',
                 core: '#ffffff'
             },
-            faceOffsetY: 90,
+            faceOffsetY: 100, // Moved lower
             mouthOffsetY: 50
         };
 
-        // --- SETUP ---
         document.body.style.cursor = "url('static/digital_biscuit.png') 32 32, auto";
 
         const canvas = document.getElementById('face-canvas');
         const stage = document.getElementById('stage');
         const ctx = canvas.getContext('2d');
 
-        // 1. Shapes Buffer
         const shapeCanvas = document.createElement('canvas');
         const sCtx = shapeCanvas.getContext('2d');
-
-        // 2. Pattern Cache
         const patternCanvas = document.createElement('canvas');
         const pCtx = patternCanvas.getContext('2d');
 
-        // State Variables
-        let mouseX = 0, mouseY = 0; // Screen normalized (-1 to 1)
-        let gridMouseY = 0; // Grid Key for tracking
+        let mouseX = 0, mouseY = 0;
         let smileFactor = 0;
-        let targetSmile = 0;
-
-        // Independent Pupil Tracking
+        let targetSmile = 0.5;
         let pupilL = { x: 0, y: 0 };
         let pupilR = { x: 0, y: 0 };
-
-        // Helper to check interactive distance
         let isEating = false;
         let eatPhase = 0;
-
-        // VISIBILITY STATE
         let faceOpacity = 1.0;
-        let targetOpacity = 1.0;
 
-        // --- RESIZE & INIT ---
         const init = () => {
             const rect = stage.getBoundingClientRect();
             if (rect.width === 0) return;
-
             const dpr = window.devicePixelRatio || 1;
-
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
             ctx.scale(dpr, dpr);
-
             shapeCanvas.width = CONFIG.gridRes;
             shapeCanvas.height = CONFIG.gridRes;
-
             patternCanvas.width = canvas.width;
             patternCanvas.height = canvas.height;
             pCtx.scale(dpr, dpr);
 
-            const stageW = rect.width;
-            const stageH = rect.height;
-            const dotSize = stageW / CONFIG.gridRes;
+            const dotSize = rect.width / CONFIG.gridRes;
             const radius = (dotSize / 2) * 1.35;
-
-            pCtx.clearRect(0, 0, stageW, stageH);
-
+            pCtx.clearRect(0, 0, rect.width, rect.height);
             for (let y = 0; y < CONFIG.gridRes; y++) {
                 const sy = y * dotSize + (dotSize / 2);
-                if (sy > stageH) break;
-
+                if (sy > rect.height) break;
                 for (let x = 0; x < CONFIG.gridRes; x++) {
                     const sx = x * dotSize + (dotSize / 2);
-                    pCtx.beginPath();
-                    pCtx.arc(sx, sy, radius, 0, Math.PI * 2);
-                    pCtx.fillStyle = CONFIG.colors.glow;
-                    pCtx.fill();
-                    pCtx.beginPath();
-                    pCtx.arc(sx, sy, radius * 0.6, 0, Math.PI * 2);
-                    pCtx.fillStyle = CONFIG.colors.core;
-                    pCtx.fill();
+                    pCtx.beginPath(); pCtx.arc(sx, sy, radius, 0, Math.PI * 2);
+                    pCtx.fillStyle = CONFIG.colors.glow; pCtx.fill();
+                    pCtx.beginPath(); pCtx.arc(sx, sy, radius * 0.6, 0, Math.PI * 2);
+                    pCtx.fillStyle = CONFIG.colors.core; pCtx.fill();
                 }
             }
         };
 
         window.addEventListener('resize', init);
-        window.addEventListener('DOMContentLoaded', init);
         window.addEventListener('load', init);
         setTimeout(init, 500);
 
-        // --- INPUT TRACKING ---
         document.addEventListener('mousemove', (e) => {
-            targetOpacity = 1.0;
-            // Normalized -1 to 1
             mouseX = (e.clientX / window.innerWidth) * 2 - 1;
             mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
-
-            // Eating Interaction (using normalized coords)
-            const dist = Math.hypot(mouseX, mouseY + 0.3);
-            if (dist < 0.25) {
-                targetSmile = 1.0;
-                isEating = true;
-            } else {
-                targetSmile = 0.5;
-                isEating = false;
-            }
+            const dist = Math.hypot(mouseX, mouseY + 0.35);
+            if (dist < 0.25) { targetSmile = 1.0; isEating = true; }
+            else { targetSmile = 0.5; isEating = false; }
+            canvas.style.opacity = 1.0;
         });
 
-        document.addEventListener('mouseleave', () => {
-            targetSmile = 0.0;
-            isEating = false;
-            targetOpacity = 0.5;
-        });
-
-        // --- RENDER LOOP ---
         const animate = () => {
             requestAnimationFrame(animate);
-
             smileFactor += (targetSmile - smileFactor) * 0.1;
-            faceOpacity += (targetOpacity - faceOpacity) * 0.1;
-            canvas.style.opacity = faceOpacity;
 
-            // --- TRACKING LOGIC ---
-            // Map Mouse to Grid Coordinates (approximate for tracking vector)
-            // Grid Center is (320, 320). 
-            // We apply faceOffset to Y, so "Face Center" is (320, 320 + offset)
-
-            // Convert normalized Mouse to Grid Units relative to center
-            const gridMX = mouseX * 320; // +/- 320
-            const gridMY = -mouseY * 320; // Flip Y back to canvas coords. +/- 320
-
-            // Eye Centers on Grid relative to (0,0) center point, before global translation
-            // Actual drawing happens at (cx +/- gap, cy)
-            // cx = 320 (0 relative). cy = 320 * 0.48 = 153.6. 
-            // BUT we translate entire face by faceOffsetY (90).
-            // So EyeY = 153.6 relative to face anchor, but effectively (153.6 + 90) - 320 relative to screen center?
-            // Let's keep it simple: Vector = MousePos - EyePos
-
-            // Center of Canvas is (0,0) in our relative math below
-            const eyeY = (CONFIG.gridRes * 0.48) - (CONFIG.gridRes / 2) + CONFIG.faceOffsetY; // Relative to center
+            const gridMX = mouseX * 320;
+            const gridMY = -mouseY * 320;
+            const eyeY = (CONFIG.gridRes * 0.48) - (CONFIG.gridRes / 2) + CONFIG.faceOffsetY;
             const eyeGap = 28;
 
-            // Left Eye (-28, eyeY)
-            let dxL = gridMX - (-eyeGap);
-            let dyL = gridMY - eyeY;
-            let angL = Math.atan2(dyL, dxL);
-            let distL = Math.min(4, Math.hypot(dxL, dyL) * 0.05); // Limit pupil movement
+            [{ p: pupilL, x: -eyeGap }, { p: pupilR, x: eyeGap }].forEach(eye => {
+                const dx = gridMX - eye.x;
+                const dy = gridMY - eyeY;
+                const ang = Math.atan2(dy, dx);
+                const dist = Math.min(4.5, Math.hypot(dx, dy) * 0.06);
+                const tx = Math.cos(ang) * dist;
+                const ty = Math.sin(ang) * dist;
+                eye.p.x += (tx - eye.p.x) * 0.25;
+                eye.p.y += (ty - eye.p.y) * 0.25;
+            });
 
-            let txL = Math.cos(angL) * distL;
-            let tyL = Math.sin(angL) * distL;
-
-            pupilL.x += (txL - pupilL.x) * 0.2;
-            pupilL.y += (tyL - pupilL.y) * 0.2;
-
-            // Right Eye (+28, eyeY)
-            let dxR = gridMX - (eyeGap);
-            let dyR = gridMY - eyeY;
-            let angR = Math.atan2(dyR, dxR);
-            let distR = Math.min(4, Math.hypot(dxR, dyR) * 0.05);
-
-            let txR = Math.cos(angR) * distR;
-            let tyR = Math.sin(angR) * distR;
-
-            pupilR.x += (txR - pupilR.x) * 0.2;
-            pupilR.y += (tyR - pupilR.y) * 0.2;
-
-            // --- DRAWING ---
             sCtx.clearRect(0, 0, CONFIG.gridRes, CONFIG.gridRes);
             sCtx.save();
-
             sCtx.translate(CONFIG.gridRes / 2, (CONFIG.gridRes / 2) + CONFIG.faceOffsetY);
             sCtx.scale(CONFIG.scale, CONFIG.scale);
             sCtx.translate(-CONFIG.gridRes / 2, -CONFIG.gridRes / 2);
@@ -321,83 +235,48 @@
             const cy = CONFIG.gridRes * 0.48;
             const eyeW = 16; const eyeH = 22; const pupilSize = 3.5;
 
-            // Eyes
             [-1, 1].forEach(side => {
                 const eyeCx = cx + (eyeGap * side);
-                sCtx.beginPath();
-                sCtx.ellipse(eyeCx, cy, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
-                sCtx.fill();
-
+                sCtx.beginPath(); sCtx.ellipse(eyeCx, cy, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2); sCtx.fill();
                 sCtx.globalCompositeOperation = 'destination-out';
-                sCtx.beginPath();
-
-                // Select Independent Pupil
-                const pX = (side === -1) ? pupilL.x : pupilR.x;
-                const pY = (side === -1) ? pupilL.y : pupilR.y;
-
-                sCtx.arc(eyeCx + pX, cy + pY, pupilSize, 0, Math.PI * 2);
-                sCtx.fill();
+                const p = (side === -1) ? pupilL : pupilR;
+                sCtx.beginPath(); sCtx.arc(eyeCx + p.x, cy + p.y, pupilSize, 0, Math.PI * 2); sCtx.fill();
                 sCtx.globalCompositeOperation = 'source-over';
             });
 
-            // Brows - LOWERED AGAIN
-            sCtx.lineCap = 'round'; sCtx.lineWidth = 4;
-            const browLift = (smileFactor * 4) - (Math.abs(mouseY) * 2);
-            const browY = cy - 10 - browLift; // Even Closer (was -14)
+            sCtx.lineWidth = 4; sCtx.lineCap = 'round';
+            const browY = cy - 7 - (smileFactor * 4);
             const browW = 24; const browAngle = smileFactor * 0.15;
-
             sCtx.strokeStyle = '#FFF';
             sCtx.save(); sCtx.translate(cx - eyeGap, browY); sCtx.rotate(-browAngle);
             sCtx.beginPath(); sCtx.moveTo(-browW / 2, 4); sCtx.quadraticCurveTo(0, -2, browW / 2, 4); sCtx.stroke(); sCtx.restore();
             sCtx.save(); sCtx.translate(cx + eyeGap, browY); sCtx.rotate(browAngle);
             sCtx.beginPath(); sCtx.moveTo(-browW / 2, 4); sCtx.quadraticCurveTo(0, -2, browW / 2, 4); sCtx.stroke(); sCtx.restore();
 
-            // Mouth (Eating Logic)
-            const mouthY = cy + CONFIG.mouthOffsetY;
-            const mouthW = 32;
-
+            const mouthY = cy + CONFIG.mouthOffsetY; const mouthW = 32;
             if (isEating) {
-                eatPhase += 0.4; // Chew speed
-                const chewHeight = Math.sin(eatPhase) * 10 + 12; // Opens and closes
-                sCtx.beginPath();
-                sCtx.ellipse(cx, mouthY, mouthW / 1.5, chewHeight, 0, 0, Math.PI * 2);
-                sCtx.fill();
+                eatPhase += 0.45;
+                const chew = Math.sin(eatPhase) * 12 + 12;
+                sCtx.beginPath(); sCtx.ellipse(cx, mouthY, mouthW / 1.4, chew, 0, 0, Math.PI * 2); sCtx.fill();
             } else {
-                eatPhase = 0;
-                const smileDepth = smileFactor * 12;
+                const smile = smileFactor * 12;
+                sCtx.beginPath();
                 if (smileFactor > 0.1) {
-                    sCtx.beginPath();
-                    sCtx.moveTo(cx - mouthW, mouthY);
-                    sCtx.quadraticCurveTo(cx, mouthY + smileDepth, cx + mouthW, mouthY);
-                    sCtx.quadraticCurveTo(cx, mouthY + smileDepth + 8, cx - mouthW, mouthY);
-                    sCtx.fill();
+                    sCtx.moveTo(cx - mouthW, mouthY); sCtx.quadraticCurveTo(cx, mouthY + smile, cx + mouthW, mouthY);
+                    sCtx.quadraticCurveTo(cx, mouthY + smile + 8, cx - mouthW, mouthY); sCtx.fill();
                 } else {
-                    sCtx.beginPath();
-                    sCtx.moveTo(cx - mouthW, mouthY);
-                    sCtx.quadraticCurveTo(cx, mouthY, cx + mouthW, mouthY);
-                    sCtx.stroke();
+                    sCtx.moveTo(cx - mouthW, mouthY); sCtx.quadraticCurveTo(cx, mouthY, cx + mouthW, mouthY); sCtx.stroke();
                 }
             }
             sCtx.restore();
 
-            // 3. Composite
-            ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
-
-            ctx.save();
-            ctx.scale(1 / window.devicePixelRatio, 1 / window.devicePixelRatio);
-
-            // Draw Shape (Destination)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save(); ctx.scale(1 / window.devicePixelRatio, 1 / window.devicePixelRatio);
             ctx.drawImage(shapeCanvas, 0, 0, canvas.width, canvas.height);
-
-            // Mask with Pattern (Source-In)
             ctx.globalCompositeOperation = 'source-in';
             ctx.drawImage(patternCanvas, 0, 0);
-
-            ctx.globalCompositeOperation = 'source-over';
             ctx.restore();
-        };
-
-        animate();
+        }; animate();
     </script>
 </body>
 
