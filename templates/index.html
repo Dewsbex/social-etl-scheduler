@@ -4,14 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE SOCRATIC ORB | STANDALONE</title>
+    <title>THE SOCRATIC ORB | v125.0</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
         :root {
-            --bg-color: #050505;
+            --bg-color: #000000;
             --orb-size: min(90vw, 90vh);
-            /* responsive scaling */
         }
 
         body {
@@ -26,7 +25,6 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
-        /* --- THE ORB CONTAINER --- */
         .orb-stage {
             position: relative;
             width: var(--orb-size);
@@ -36,53 +34,37 @@
             justify-content: center;
         }
 
-        /* --- THE ROBOT HULL (Image) --- */
         .orb-hull {
             position: absolute;
             inset: 0;
-            /* Standardized relative path for Render static serving */
             background-image: url('/static/trim_bot.png');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
-
-            /* THE COLOR POP LOGIC */
-            filter: grayscale(100%) contrast(1.2);
-            transition: filter 0.8s ease-out;
             z-index: 1;
         }
 
-        /* Hovering anywhere on the screen triggers the color pop */
-        body:hover .orb-hull {
-            filter: grayscale(0%) contrast(1.0);
-        }
-
-        /* --- THE VFD FACE (Canvas) --- */
         #face-canvas {
             position: absolute;
             z-index: 2;
-            /* Sits ON TOP of the hull */
             width: 100%;
             height: 100%;
-            /* The face is ALWAYS colored, never grayscale */
-            filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.4));
+            pointer-events: none;
         }
 
-        /* --- UI OVERLAY --- */
         .ui-layer {
             position: absolute;
-            bottom: 40px;
+            bottom: 30px;
             left: 0;
             width: 100%;
             text-align: center;
             color: #00ffff;
-            /* CYAN for visibility */
-            font-size: 11px;
+            font-size: 10px;
             pointer-events: none;
             z-index: 10;
-            opacity: 0.6;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
+            opacity: 0.7;
+            letter-spacing: 0.25em;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
         }
     </style>
 </head>
@@ -95,171 +77,198 @@
     </div>
 
     <div class="ui-layer">
-        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v8.0 [RESET-CLEAN]
+        SYSTEM: ONLINE // ENGINE: v125.0 // SOVEREIGN SENTINEL
     </div>
 
     <script>
-        // --- CONFIGURATION ---
-        const CONFIG = {
-            gridRes: 128,        // High density micro-dots
-            scale: 0.45,         // Calibrated fit for the glass lens
-            trackingRange: 5,    // Eye movement limit
+        // --- 1. CORE CONFIGURATION (v125.0) ---
+        const SPEC = {
+            gridRes: 1024,        // High-density rendering
+            logicSize: 320,      // Logical coordinate space
+            center: { x: 160, y: 153.6 }, // 0.48 shift
+            visorScale: 0.85,
             colors: {
-                bg: '#000000',   // Backing behind pixels (Solid state)
-                glow: '#00ffff', // High-voltage cyan
-                core: '#ffffff'  // White hot center
-            }
+                bg: '#000000',
+                glow: '#00ffff',
+                core: '#ffffff'
+            },
+            dotsPerAxis: 1000,
+            overlap: 1.6
         };
 
-        // --- SETUP ---
         const canvas = document.getElementById('face-canvas');
         const stage = document.getElementById('stage');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: true });
 
-        // Virtual buffer for drawing shapes before pixelating
+        // Dual Buffer Architecture
         const buffer = document.createElement('canvas');
-        buffer.width = CONFIG.gridRes;
-        buffer.height = CONFIG.gridRes;
+        buffer.width = SPEC.logicSize;
+        buffer.height = SPEC.logicSize;
         const bCtx = buffer.getContext('2d');
 
-        // State Variables
+        // State
         let mouseX = 0, mouseY = 0;
-        let smileFactor = 0;
-        let targetSmile = 0;
+        let smileFactor = -0.5; // Starts at Idle Frown
+        let targetSmile = -0.5;
         let eyePos = { x: 0, y: 0 };
         let eyeVel = { x: 0, y: 0 };
+        let isOffScreen = true;
 
-        // --- RESIZE HANDLER ---
-        const handleResize = () => {
+        // --- 2. SETUP & RESIZE ---
+        const init = () => {
             const dpr = window.devicePixelRatio || 1;
             const rect = stage.getBoundingClientRect();
-
-            // Critical: setting canvas size clears transform state
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
-
-            // Apply scale once here
             ctx.scale(dpr, dpr);
         };
-        window.addEventListener('resize', handleResize);
-        handleResize(); // Init
+        window.addEventListener('resize', init);
+        init();
 
-        // --- INPUT TRACKING ---
+        // Interaction
         document.addEventListener('mousemove', (e) => {
+            isOffScreen = false;
             mouseX = (e.clientX / window.innerWidth) * 2 - 1;
             mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
             targetSmile = 1.0;
         });
 
-        document.addEventListener('mouseout', () => { targetSmile = 0.0; });
+        document.addEventListener('mouseleave', () => {
+            isOffScreen = true;
+            targetSmile = -0.5;
+        });
 
-        // --- THE RENDER LOOP ---
-        const animate = () => {
-            requestAnimationFrame(animate);
-
-            // 1. Physics
-            smileFactor += (targetSmile - smileFactor) * 0.1;
-            const targetX = Math.max(-1, Math.min(1, mouseX)) * CONFIG.trackingRange;
-            const targetY = Math.max(-1, Math.min(1, -mouseY)) * CONFIG.trackingRange;
-
-            eyeVel.x += (targetX - eyePos.x) * 0.1;
-            eyeVel.y += (targetY - eyePos.y) * 0.1;
-            eyeVel.x *= 0.8;
-            eyeVel.y *= 0.8;
-            eyePos.x += eyeVel.x;
-            eyePos.y += eyeVel.y;
-
-            // 2. DRAW TO BUFFER
-            bCtx.clearRect(0, 0, CONFIG.gridRes, CONFIG.gridRes);
+        // --- 3. RENDERING ENGINE ---
+        const drawFaceShapes = () => {
+            bCtx.clearRect(0, 0, SPEC.logicSize, SPEC.logicSize);
             bCtx.save();
-            bCtx.translate(CONFIG.gridRes / 2, CONFIG.gridRes / 2);
-            bCtx.scale(CONFIG.scale, CONFIG.scale);
-            bCtx.translate(-CONFIG.gridRes / 2, -CONFIG.gridRes / 2);
 
-            const cx = CONFIG.gridRes / 2;
-            const cy = CONFIG.gridRes * 0.48;
-            bCtx.fillStyle = '#FFF';
-            bCtx.strokeStyle = '#FFF';
+            // Global Transform
+            bCtx.translate(SPEC.center.x, SPEC.center.y);
+            bCtx.scale(SPEC.visorScale, SPEC.visorScale);
+            bCtx.translate(-SPEC.center.x, -SPEC.center.y);
 
-            // EYES
-            const eyeW = 14; const eyeH = 20; const eyeGap = 28;
+            const cx = SPEC.center.x;
+            const cy = SPEC.center.y;
+
+            // --- 2.1 EYES & HOLLOW PUPILS ---
+            const eyeW = 32; const eyeH = 44; const eyeGap = 35;
+            const pupilRadius = 11;
+
             [-1, 1].forEach(side => {
+                const ex = cx + (eyeGap * side) + eyePos.x;
+                const ey = cy + eyePos.y;
+
+                bCtx.fillStyle = '#FFFFFF';
                 bCtx.beginPath();
-                bCtx.ellipse(cx + (eyeGap * side) + eyePos.x, cy + eyePos.y, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
+                bCtx.ellipse(ex, ey, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
                 bCtx.fill();
+
+                // Hollow Pupil
+                bCtx.globalCompositeOperation = 'destination-out';
+                bCtx.beginPath();
+                bCtx.arc(ex + (eyePos.x * 0.2), ey + (eyePos.y * 0.2), pupilRadius, 0, Math.PI * 2);
+                bCtx.fill();
+                bCtx.globalCompositeOperation = 'source-over';
             });
 
-            // BROWS
-            const browY = cy - 20 + (eyePos.y * 0.7);
-            const browW = 24; const browAngle = smileFactor * 0.3;
-            bCtx.lineWidth = 5; bCtx.lineCap = 'round';
+            // --- 2.2 EYEBROWS ---
+            const browW = 32;
+            const browY = cy - 30;
+            const tilt = smileFactor * 15;
+
+            bCtx.strokeStyle = '#FFFFFF';
+            bCtx.lineWidth = 4;
+            bCtx.lineCap = 'round';
+
             [-1, 1].forEach(side => {
+                const bx = cx + (eyeGap * side) + (eyePos.x * 0.5);
+                const by = browY + (eyePos.y * 0.5);
+
                 bCtx.save();
-                bCtx.translate(cx + (eyeGap * side) + eyePos.x, browY);
-                bCtx.rotate(browAngle * side);
+                bCtx.translate(bx, by);
+                bCtx.rotate(side * (smileFactor * 0.2));
                 bCtx.beginPath();
-                bCtx.moveTo(-browW / 2, 4); bCtx.quadraticCurveTo(0, -6, browW / 2, 4);
+                bCtx.moveTo(-browW / 2, 5);
+                bCtx.quadraticCurveTo(0, -5 - (smileFactor * 5), browW / 2, 5);
                 bCtx.stroke();
                 bCtx.restore();
             });
 
-            // MOUTH
-            const mouthY = cy + 28; const mouthW = 32;
-            const smileDepth = smileFactor * 14;
-            if (smileFactor > 0.1) {
-                bCtx.beginPath();
-                bCtx.moveTo(cx - mouthW, mouthY);
-                bCtx.quadraticCurveTo(cx, mouthY + smileDepth, cx + mouthW, mouthY - (6 * smileFactor));
-                bCtx.quadraticCurveTo(cx, mouthY + smileDepth + 10, cx - mouthW, mouthY);
-                bCtx.fill();
-            } else {
-                bCtx.beginPath();
-                bCtx.moveTo(cx - mouthW, mouthY);
-                bCtx.quadraticCurveTo(cx, mouthY, cx + mouthW, mouthY);
-                bCtx.stroke();
-            }
+            // --- 3. THE MOUTH (DYNAMIC TAPERED BAR) ---
+            const mouthW = 42;
+            const mouthY = cy + 34;
+            // logic: 12 + (abs(smileFactor) * 10)
+            const thickness = 6 + (Math.abs(smileFactor) * 5);
+            const curviness = (smileFactor > 0) ? smileFactor * 12 : smileFactor * 18;
+            const cornerY = (smileFactor < 0) ? -smileFactor * 8 : 0;
+
+            bCtx.fillStyle = '#FFFFFF';
+            bCtx.beginPath();
+            // Start at Left Corner
+            bCtx.moveTo(cx - mouthW, mouthY + cornerY);
+            // Top Curve
+            bCtx.quadraticCurveTo(cx, mouthY + curviness - thickness, cx + mouthW, mouthY + cornerY);
+            // Bottom Curve (meets at corners for tapering)
+            bCtx.quadraticCurveTo(cx, mouthY + curviness + thickness, cx - mouthW, mouthY + cornerY);
+            bCtx.closePath();
+            bCtx.fill();
 
             bCtx.restore();
+        };
 
-            // 3. RENDER PIXELS (Using canvas-level shadow only for performance)
+        const renderMatrix = () => {
+            // physics
+            smileFactor += (targetSmile - smileFactor) * 0.12;
+
+            const pX = isOffScreen ? 0 : mouseX * 8;
+            const pY = isOffScreen ? 0 : -mouseY * 8;
+
+            eyeVel.x += (pX - eyePos.x) * 0.2;
+            eyeVel.y += (pY - eyePos.y) * 0.2;
+            eyeVel.x *= 0.7; eyeVel.y *= 0.7;
+            eyePos.x += eyeVel.x; eyePos.y += eyeVel.y;
+
+            drawFaceShapes();
+
+            // Clear Main Canvas
+            const scale = stage.clientWidth / SPEC.logicSize;
             ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
 
-            const data = bCtx.getImageData(0, 0, CONFIG.gridRes, CONFIG.gridRes).data;
-            const stageW = stage.clientWidth;
-            const dotSize = stageW / CONFIG.gridRes;
-            const radius = (dotSize / 2) * 1.15;
+            // Rasterize logical buffer to high-res grid
+            // We'll read the logical buffer and draw phosphor dots
+            const imgData = bCtx.getImageData(0, 0, SPEC.logicSize, SPEC.logicSize).data;
+            const dotStep = SPEC.logicSize / SPEC.dotsPerAxis;
+            const dotRadius = (dotStep / 2) * SPEC.overlap;
 
-            // Optimization: avoid shadowBlur in internal loop
-            for (let y = 0; y < CONFIG.gridRes; y++) {
-                for (let x = 0; x < CONFIG.gridRes; x++) {
-                    const idx = (y * CONFIG.gridRes + x) * 4;
-                    if (data[idx + 3] > 100) {
-                        const sx = x * dotSize + (dotSize / 2);
-                        const sy = y * dotSize + (dotSize / 2);
+            for (let y = 0; y < SPEC.logicSize; y += dotStep) {
+                for (let x = 0; x < SPEC.logicSize; x += dotStep) {
+                    const idx = (Math.floor(y) * SPEC.logicSize + Math.floor(x)) * 4;
+                    if (imgData[idx + 3] > 120) {
+                        const sx = x * scale;
+                        const sy = y * scale;
+                        const r = dotRadius * scale;
 
-                        // Layer 1: Black Backing
+                        // Solid Phosphor Rendering
+                        // Outer Glow
                         ctx.beginPath();
-                        ctx.arc(sx, sy, radius * 1.2, 0, Math.PI * 2);
-                        ctx.fillStyle = CONFIG.colors.bg;
+                        ctx.arc(sx, sy, r * 0.98, 0, Math.PI * 2);
+                        ctx.fillStyle = SPEC.colors.glow;
                         ctx.fill();
 
-                        // Layer 2: Neon Core (The glow is handled by the canvas CSS filter)
+                        // Inner Core
                         ctx.beginPath();
-                        ctx.arc(sx, sy, radius, 0, Math.PI * 2);
-                        ctx.fillStyle = CONFIG.colors.glow;
-                        ctx.fill();
-
-                        // Layer 3: White Core
-                        ctx.beginPath();
-                        ctx.arc(sx, sy, radius * 0.6, 0, Math.PI * 2);
-                        ctx.fillStyle = CONFIG.colors.core;
+                        ctx.arc(sx, sy, r * 0.9, 0, Math.PI * 2);
+                        ctx.fillStyle = SPEC.colors.core;
                         ctx.fill();
                     }
                 }
             }
+
+            requestAnimationFrame(renderMatrix);
         };
 
-        animate();
+        renderMatrix();
     </script>
 </body>
 
