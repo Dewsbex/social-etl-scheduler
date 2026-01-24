@@ -27,7 +27,6 @@
         }
 
         /* --- THE ORB CONTAINER --- */
-        /* This keeps the aspect ratio locked so the face never drifts */
         .orb-stage {
             position: relative;
             width: var(--orb-size);
@@ -41,12 +40,11 @@
         .orb-hull {
             position: absolute;
             inset: 0;
-            /* Using relative static path for Render compatibility */
-            background-image: url('/static/Trim%20Bot%20Dark%20Avenger.png');
+            /* Standardized relative path for Render static serving */
+            background-image: url('/static/trim_bot.png');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
-            background-color: transparent;
 
             /* THE COLOR POP LOGIC */
             filter: grayscale(100%) contrast(1.2);
@@ -78,7 +76,7 @@
             width: 100%;
             text-align: center;
             color: #00ffff;
-            /* Changed to Cyan for maximum visibility */
+            /* CYAN for visibility */
             font-size: 11px;
             pointer-events: none;
             z-index: 10;
@@ -97,7 +95,7 @@
     </div>
 
     <div class="ui-layer">
-        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v7.2 [ASSET-SERVED]
+        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v8.0 [RESET-CLEAN]
     </div>
 
     <script>
@@ -133,13 +131,14 @@
 
         // --- RESIZE HANDLER ---
         const handleResize = () => {
-            // Retina scaling for sharpness
             const dpr = window.devicePixelRatio || 1;
             const rect = stage.getBoundingClientRect();
 
+            // Critical: setting canvas size clears transform state
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
 
+            // Apply scale once here
             ctx.scale(dpr, dpr);
         };
         window.addEventListener('resize', handleResize);
@@ -147,107 +146,73 @@
 
         // --- INPUT TRACKING ---
         document.addEventListener('mousemove', (e) => {
-            // Normalize mouse position (-1 to 1) from center of screen
             mouseX = (e.clientX / window.innerWidth) * 2 - 1;
             mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
-            targetSmile = 1.0; // Smile when interacting
+            targetSmile = 1.0;
         });
 
-        // Reset when mouse leaves window
         document.addEventListener('mouseout', () => { targetSmile = 0.0; });
 
         // --- THE RENDER LOOP ---
         const animate = () => {
             requestAnimationFrame(animate);
 
-            // 1. Physics & Interpolation
+            // 1. Physics
             smileFactor += (targetSmile - smileFactor) * 0.1;
-
-            // Eye Tracking Physics
             const targetX = Math.max(-1, Math.min(1, mouseX)) * CONFIG.trackingRange;
             const targetY = Math.max(-1, Math.min(1, -mouseY)) * CONFIG.trackingRange;
 
             eyeVel.x += (targetX - eyePos.x) * 0.1;
             eyeVel.y += (targetY - eyePos.y) * 0.1;
-            eyeVel.x *= 0.8; // Friction
+            eyeVel.x *= 0.8;
             eyeVel.y *= 0.8;
             eyePos.x += eyeVel.x;
             eyePos.y += eyeVel.y;
 
-            // 2. DRAW SHAPES TO VIRTUAL BUFFER
+            // 2. DRAW TO BUFFER
             bCtx.clearRect(0, 0, CONFIG.gridRes, CONFIG.gridRes);
             bCtx.save();
-
-            // Center & Scale
             bCtx.translate(CONFIG.gridRes / 2, CONFIG.gridRes / 2);
             bCtx.scale(CONFIG.scale, CONFIG.scale);
             bCtx.translate(-CONFIG.gridRes / 2, -CONFIG.gridRes / 2);
 
+            const cx = CONFIG.gridRes / 2;
+            const cy = CONFIG.gridRes * 0.48;
             bCtx.fillStyle = '#FFF';
             bCtx.strokeStyle = '#FFF';
-            bCtx.lineCap = 'round';
 
-            const cx = CONFIG.gridRes / 2;
-            const cy = CONFIG.gridRes * 0.48; // Optical center
-
-            // --> EYES (Symmetrical Vertical Pills)
+            // EYES
             const eyeW = 14; const eyeH = 20; const eyeGap = 28;
-
             [-1, 1].forEach(side => {
                 bCtx.beginPath();
-                bCtx.ellipse(
-                    cx + (eyeGap * side) + eyePos.x,
-                    cy + eyePos.y,
-                    eyeW / 2, eyeH / 2,
-                    0, 0, Math.PI * 2
-                );
+                bCtx.ellipse(cx + (eyeGap * side) + eyePos.x, cy + eyePos.y, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
                 bCtx.fill();
             });
 
-            // --> BROWS (Arched & Dampened)
-            const browY = cy - 20 + (eyePos.y * 0.7); // Dampened Y movement
-            const browW = 24;
-            const browAngle = smileFactor * 0.3;
-            bCtx.lineWidth = 5;
+            // BROWS
+            const browY = cy - 20 + (eyePos.y * 0.7);
+            const browW = 24; const browAngle = smileFactor * 0.3;
+            bCtx.lineWidth = 5; bCtx.lineCap = 'round';
+            [-1, 1].forEach(side => {
+                bCtx.save();
+                bCtx.translate(cx + (eyeGap * side) + eyePos.x, browY);
+                bCtx.rotate(browAngle * side);
+                bCtx.beginPath();
+                bCtx.moveTo(-browW / 2, 4); bCtx.quadraticCurveTo(0, -6, browW / 2, 4);
+                bCtx.stroke();
+                bCtx.restore();
+            });
 
-            // Left Brow
-            bCtx.save();
-            bCtx.translate(cx - eyeGap + eyePos.x, browY);
-            bCtx.rotate(-browAngle);
-            bCtx.beginPath();
-            bCtx.moveTo(-browW / 2, 4);
-            bCtx.quadraticCurveTo(0, -6, browW / 2, 4);
-            bCtx.stroke();
-            bCtx.restore();
-
-            // Right Brow
-            bCtx.save();
-            bCtx.translate(cx + eyeGap + eyePos.x, browY);
-            bCtx.rotate(browAngle);
-            bCtx.beginPath();
-            bCtx.moveTo(-browW / 2, 4);
-            bCtx.quadraticCurveTo(0, -6, browW / 2, 4);
-            bCtx.stroke();
-            bCtx.restore();
-
-            // --> MOUTH (Wide Crescent)
-            const mouthY = cy + 28;
-            const mouthW = 32;
+            // MOUTH
+            const mouthY = cy + 28; const mouthW = 32;
             const smileDepth = smileFactor * 14;
-            const skewY = (smileFactor > 0) ? -6 * smileFactor : 0; // Smirk lift
-
             if (smileFactor > 0.1) {
-                // The "Banana" Shape
                 bCtx.beginPath();
                 bCtx.moveTo(cx - mouthW, mouthY);
-                // Top Lip
-                bCtx.quadraticCurveTo(cx, mouthY + smileDepth, cx + mouthW, mouthY + skewY);
-                // Bottom Lip (Thicker center)
+                bCtx.quadraticCurveTo(cx, mouthY + smileDepth, cx + mouthW, mouthY - (6 * smileFactor));
                 bCtx.quadraticCurveTo(cx, mouthY + smileDepth + 10, cx - mouthW, mouthY);
                 bCtx.fill();
             } else {
-                // Neutral Line
-                bCtx.lineWidth = 5;
                 bCtx.beginPath();
                 bCtx.moveTo(cx - mouthW, mouthY);
                 bCtx.quadraticCurveTo(cx, mouthY, cx + mouthW, mouthY);
@@ -256,41 +221,36 @@
 
             bCtx.restore();
 
-            // 3. RENDER PIXELS TO SCREEN (Micro-Dot Array)
-            // Clear Screen
+            // 3. RENDER PIXELS (Using canvas-level shadow only for performance)
             ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
 
-            // Get pixel data
             const data = bCtx.getImageData(0, 0, CONFIG.gridRes, CONFIG.gridRes).data;
             const stageW = stage.clientWidth;
             const dotSize = stageW / CONFIG.gridRes;
-            const radius = (dotSize / 2) * 1.15; // 15% overlap for solid look
+            const radius = (dotSize / 2) * 1.15;
 
+            // Optimization: avoid shadowBlur in internal loop
             for (let y = 0; y < CONFIG.gridRes; y++) {
                 for (let x = 0; x < CONFIG.gridRes; x++) {
                     const idx = (y * CONFIG.gridRes + x) * 4;
-                    // Check alpha channel
                     if (data[idx + 3] > 100) {
                         const sx = x * dotSize + (dotSize / 2);
                         const sy = y * dotSize + (dotSize / 2);
 
-                        // Layer 1: Black Backing (Opacity)
+                        // Layer 1: Black Backing
                         ctx.beginPath();
                         ctx.arc(sx, sy, radius * 1.2, 0, Math.PI * 2);
                         ctx.fillStyle = CONFIG.colors.bg;
                         ctx.fill();
 
-                        // Layer 2: Neon Glow
+                        // Layer 2: Neon Core (The glow is handled by the canvas CSS filter)
                         ctx.beginPath();
                         ctx.arc(sx, sy, radius, 0, Math.PI * 2);
                         ctx.fillStyle = CONFIG.colors.glow;
-                        ctx.shadowColor = CONFIG.colors.glow;
-                        ctx.shadowBlur = dotSize * 0.8;
                         ctx.fill();
 
                         // Layer 3: White Core
                         ctx.beginPath();
-                        ctx.shadowBlur = 0;
                         ctx.arc(sx, sy, radius * 0.6, 0, Math.PI * 2);
                         ctx.fillStyle = CONFIG.colors.core;
                         ctx.fill();
@@ -299,7 +259,6 @@
             }
         };
 
-        // Start Engine
         animate();
     </script>
 </body>
