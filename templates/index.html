@@ -131,8 +131,9 @@
     </div>
 
     <div class="fire-overlay"></div>
-    <div class="ui-layer">
-        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v5.3 [REFINED]
+    <div class="ui-layer"
+        style="color: #ff0000; text-shadow: 0 0 10px #ff0000; font-weight: bold; font-size: 14px; opacity: 1.0;">
+        SYSTEM: ONLINE // SOCRATIC ENGINE ACTIVE // v5.5 [DEBUG: RED]
     </div>
 
     <script>
@@ -146,12 +147,12 @@
                 glow: '#00ffff',
                 core: '#ffffff'
             },
-            faceOffsetY: 90,     // Moved face further down (was 60)
+            faceOffsetY: 90,
             mouthOffsetY: 50
         };
 
         // --- SETUP ---
-        document.body.style.cursor = "url('static/digital_biscuit.png') 32 32, auto"; // Set cursor
+        document.body.style.cursor = "url('static/digital_biscuit.png') 32 32, auto";
 
         const canvas = document.getElementById('face-canvas');
         const stage = document.getElementById('stage');
@@ -166,40 +167,41 @@
         const pCtx = patternCanvas.getContext('2d');
 
         // State Variables
-        let mouseX = 0, mouseY = 0;
+        let mouseX = 0, mouseY = 0; // Screen normalized (-1 to 1)
+        let gridMouseY = 0; // Grid Key for tracking
         let smileFactor = 0;
         let targetSmile = 0;
-        let pupilPos = { x: 0, y: 0 };
-        let pupilVel = { x: 0, y: 0 };
+
+        // Independent Pupil Tracking
+        let pupilL = { x: 0, y: 0 };
+        let pupilR = { x: 0, y: 0 };
+
+        // Helper to check interactive distance
         let isEating = false;
         let eatPhase = 0;
 
-        // VISIBILITY STATE: Start ON (1.0) to guarantee visibility
+        // VISIBILITY STATE
         let faceOpacity = 1.0;
         let targetOpacity = 1.0;
-        let isFlickering = false;
 
         // --- RESIZE & INIT ---
         const init = () => {
             const rect = stage.getBoundingClientRect();
-            if (rect.width === 0) return; // Not ready yet
+            if (rect.width === 0) return;
 
             const dpr = window.devicePixelRatio || 1;
 
-            // 1. Resize Main Canvas
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
             ctx.scale(dpr, dpr);
 
-            // 2. Resize Buffers (Critical: Match main canvas aspect/scale)
             shapeCanvas.width = CONFIG.gridRes;
             shapeCanvas.height = CONFIG.gridRes;
 
-            patternCanvas.width = canvas.width;  // Must match screen pixels for crisp dots
+            patternCanvas.width = canvas.width;
             patternCanvas.height = canvas.height;
             pCtx.scale(dpr, dpr);
 
-            // 3. Re-Render Pattern
             const stageW = rect.width;
             const stageH = rect.height;
             const dotSize = stageW / CONFIG.gridRes;
@@ -213,14 +215,10 @@
 
                 for (let x = 0; x < CONFIG.gridRes; x++) {
                     const sx = x * dotSize + (dotSize / 2);
-
-                    // Glow
                     pCtx.beginPath();
                     pCtx.arc(sx, sy, radius, 0, Math.PI * 2);
                     pCtx.fillStyle = CONFIG.colors.glow;
                     pCtx.fill();
-
-                    // Core
                     pCtx.beginPath();
                     pCtx.arc(sx, sy, radius * 0.6, 0, Math.PI * 2);
                     pCtx.fillStyle = CONFIG.colors.core;
@@ -229,28 +227,25 @@
             }
         };
 
-        // Aggressive Initialization to ensure we catch layout
         window.addEventListener('resize', init);
         window.addEventListener('DOMContentLoaded', init);
         window.addEventListener('load', init);
-        setTimeout(init, 500); // Fail-safe
+        setTimeout(init, 500);
 
         // --- INPUT TRACKING ---
         document.addEventListener('mousemove', (e) => {
             targetOpacity = 1.0;
+            // Normalized -1 to 1
             mouseX = (e.clientX / window.innerWidth) * 2 - 1;
             mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
 
-            // Check for Eating Interaction
-            // Use normalized coords: Mouth is roughly at (0, 0.2) in screen space due to offsets
-            // Simple distance check in normalized space
-            const dist = Math.hypot(mouseX, mouseY + 0.3); // Adjusted check for lower face
-
+            // Eating Interaction (using normalized coords)
+            const dist = Math.hypot(mouseX, mouseY + 0.3);
             if (dist < 0.25) {
-                targetSmile = 1.0; // Happy to eat
+                targetSmile = 1.0;
                 isEating = true;
             } else {
-                targetSmile = 0.5; // Default friendly
+                targetSmile = 0.5;
                 isEating = false;
             }
         });
@@ -258,7 +253,6 @@
         document.addEventListener('mouseleave', () => {
             targetSmile = 0.0;
             isEating = false;
-            // Optionally fade out, but let's keep it visible for now to debug
             targetOpacity = 0.5;
         });
 
@@ -266,24 +260,58 @@
         const animate = () => {
             requestAnimationFrame(animate);
 
-            // 1. Logic
             smileFactor += (targetSmile - smileFactor) * 0.1;
             faceOpacity += (targetOpacity - faceOpacity) * 0.1;
             canvas.style.opacity = faceOpacity;
 
-            const pLimit = 4;
-            const targetX = Math.max(-1, Math.min(1, mouseX)) * pLimit;
-            const targetY = Math.max(-1, Math.min(1, -mouseY)) * pLimit;
-            pupilVel.x += (targetX - pupilPos.x) * 0.2;
-            pupilVel.y += (targetY - pupilPos.y) * 0.2;
-            pupilVel.x *= 0.7; pupilVel.y *= 0.7;
-            pupilPos.x += pupilVel.x; pupilPos.y += pupilVel.y;
+            // --- TRACKING LOGIC ---
+            // Map Mouse to Grid Coordinates (approximate for tracking vector)
+            // Grid Center is (320, 320). 
+            // We apply faceOffset to Y, so "Face Center" is (320, 320 + offset)
 
-            // 2. Draw Face Shapes (White) to Shape Buffer
+            // Convert normalized Mouse to Grid Units relative to center
+            const gridMX = mouseX * 320; // +/- 320
+            const gridMY = -mouseY * 320; // Flip Y back to canvas coords. +/- 320
+
+            // Eye Centers on Grid relative to (0,0) center point, before global translation
+            // Actual drawing happens at (cx +/- gap, cy)
+            // cx = 320 (0 relative). cy = 320 * 0.48 = 153.6. 
+            // BUT we translate entire face by faceOffsetY (90).
+            // So EyeY = 153.6 relative to face anchor, but effectively (153.6 + 90) - 320 relative to screen center?
+            // Let's keep it simple: Vector = MousePos - EyePos
+
+            // Center of Canvas is (0,0) in our relative math below
+            const eyeY = (CONFIG.gridRes * 0.48) - (CONFIG.gridRes / 2) + CONFIG.faceOffsetY; // Relative to center
+            const eyeGap = 28;
+
+            // Left Eye (-28, eyeY)
+            let dxL = gridMX - (-eyeGap);
+            let dyL = gridMY - eyeY;
+            let angL = Math.atan2(dyL, dxL);
+            let distL = Math.min(4, Math.hypot(dxL, dyL) * 0.05); // Limit pupil movement
+
+            let txL = Math.cos(angL) * distL;
+            let tyL = Math.sin(angL) * distL;
+
+            pupilL.x += (txL - pupilL.x) * 0.2;
+            pupilL.y += (tyL - pupilL.y) * 0.2;
+
+            // Right Eye (+28, eyeY)
+            let dxR = gridMX - (eyeGap);
+            let dyR = gridMY - eyeY;
+            let angR = Math.atan2(dyR, dxR);
+            let distR = Math.min(4, Math.hypot(dxR, dyR) * 0.05);
+
+            let txR = Math.cos(angR) * distR;
+            let tyR = Math.sin(angR) * distR;
+
+            pupilR.x += (txR - pupilR.x) * 0.2;
+            pupilR.y += (tyR - pupilR.y) * 0.2;
+
+            // --- DRAWING ---
             sCtx.clearRect(0, 0, CONFIG.gridRes, CONFIG.gridRes);
             sCtx.save();
 
-            // Apply Global Scale and Offset
             sCtx.translate(CONFIG.gridRes / 2, (CONFIG.gridRes / 2) + CONFIG.faceOffsetY);
             sCtx.scale(CONFIG.scale, CONFIG.scale);
             sCtx.translate(-CONFIG.gridRes / 2, -CONFIG.gridRes / 2);
@@ -291,7 +319,7 @@
 
             const cx = CONFIG.gridRes / 2;
             const cy = CONFIG.gridRes * 0.48;
-            const eyeW = 16; const eyeH = 22; const eyeGap = 28; const pupilSize = 3.5;
+            const eyeW = 16; const eyeH = 22; const pupilSize = 3.5;
 
             // Eyes
             [-1, 1].forEach(side => {
@@ -299,21 +327,26 @@
                 sCtx.beginPath();
                 sCtx.ellipse(eyeCx, cy, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
                 sCtx.fill();
-                // Pupil Hole
+
                 sCtx.globalCompositeOperation = 'destination-out';
                 sCtx.beginPath();
-                sCtx.arc(eyeCx + pupilPos.x, cy + pupilPos.y, pupilSize, 0, Math.PI * 2);
+
+                // Select Independent Pupil
+                const pX = (side === -1) ? pupilL.x : pupilR.x;
+                const pY = (side === -1) ? pupilL.y : pupilR.y;
+
+                sCtx.arc(eyeCx + pX, cy + pY, pupilSize, 0, Math.PI * 2);
                 sCtx.fill();
                 sCtx.globalCompositeOperation = 'source-over';
             });
 
-            // Brows - LOWERED
+            // Brows - LOWERED AGAIN
             sCtx.lineCap = 'round'; sCtx.lineWidth = 4;
             const browLift = (smileFactor * 4) - (Math.abs(mouseY) * 2);
-            const browY = cy - 14 - browLift; // Closer to eyes (was -20)
+            const browY = cy - 10 - browLift; // Even Closer (was -14)
             const browW = 24; const browAngle = smileFactor * 0.15;
 
-            sCtx.strokeStyle = '#FFF'; // Ensure stroke is white
+            sCtx.strokeStyle = '#FFF';
             sCtx.save(); sCtx.translate(cx - eyeGap, browY); sCtx.rotate(-browAngle);
             sCtx.beginPath(); sCtx.moveTo(-browW / 2, 4); sCtx.quadraticCurveTo(0, -2, browW / 2, 4); sCtx.stroke(); sCtx.restore();
             sCtx.save(); sCtx.translate(cx + eyeGap, browY); sCtx.rotate(browAngle);
