@@ -7,7 +7,6 @@ from flask import Flask, render_template, jsonify
 from dotenv import load_dotenv
 
 # Load environment variables
-# FORCE BUILD v5.3-RECOVERY
 load_dotenv()
 
 app = Flask(__name__)
