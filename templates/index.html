@@ -3,341 +3,346 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>THE SOCRATIC ORB | v125.1-FINAL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socratic Orb VFD - v126.0 (Production)</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
-
-        /* v125.1 CLEAN NAMESPACE */
-        :root {
-            --v125-bg: #000000;
-            --v125-cyan: #00ffff;
-            --v125-white: #ffffff;
-            --v125-size: min(90vw, 90vh);
-        }
-
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            background: var(--v125-bg);
+        body {
+            background-color: #050505;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             height: 100vh;
-            width: 100vw;
+            margin: 0;
             overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: monospace;
         }
 
-        /* --- THE STAGE --- */
-        .v125-stage {
+        /* THE CHASSIS 
+           Using the RAW GitHub link to ensure it loads.
+        */
+        #chassis {
             position: relative;
-            width: var(--v125-size);
-            height: var(--v125-size);
-            /* Centering Context */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #000;
-            border-radius: 50%;
-            /* Temp circular mask */
-        }
-
-        /* --- THE HULL --- */
-        .v125-hull {
-            position: absolute;
-            inset: 0;
-            /* FALLBACK COLOR IN CASE IMAGE 404s */
-            background-color: #111;
-            background-image: url('/static/socratic_hull_v135.png?v=125.1');
+            width: 100vw;
+            height: 100vh;
+            background: url('https://raw.githubusercontent.com/Dewsbex/socratic-orb/main/Trim%20Bot%20Dark%20Avenger.png') no-repeat center center;
             background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            z-index: 1;
-            pointer-events: none;
+            /* Keeps the robot fully visible */
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        /* --- THE FACE CANVAS --- */
-        #v125-face {
+        /* THE VISOR CONTAINER
+           This positions the face specifically over the robot's glass eye.
+           You may need to tweak 'margin-top' slightly depending on the exact image crop,
+           but this centers it logically.
+        */
+        #visor-aperture {
             position: absolute;
-            z-index: 2;
+            width: 28vmin;
+            /* Responsive size relative to viewport */
+            height: 28vmin;
+            /* Fine-tune position to sit on the glass */
+            top: 48%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        /* THE VFD FACE */
+        canvas {
             width: 100%;
             height: 100%;
-            pointer-events: none;
-            /* Hardware Accelerated Glow */
-            filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.5));
+            /* Adds the CRT/VFD Glow Bloom */
+            filter: drop-shadow(0 0 8px cyan) drop-shadow(0 0 16px rgba(0, 255, 255, 0.4));
         }
 
-        /* --- FOOTER --- */
-        .v125-footer {
+        .debug {
             position: absolute;
-            bottom: 30px;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            color: var(--v125-cyan);
+            bottom: 10px;
+            right: 10px;
+            color: #00ffff;
             font-size: 10px;
+            opacity: 0.3;
             pointer-events: none;
-            z-index: 10;
-            opacity: 0.9;
-            letter-spacing: 0.25em;
-            text-transform: uppercase;
-            text-shadow: 0 0 8px rgba(0, 255, 255, 0.8);
         }
     </style>
 </head>
 
 <body>
 
-    <div class="v125-stage" id="stage">
-        <div class="v125-hull"></div>
-        <canvas id="v125-face"></canvas>
+    <div id="chassis">
+        <div id="visor-aperture">
+            <canvas id="orbCanvas" width="640" height="640"></canvas>
+        </div>
     </div>
-
-    <div class="v125-footer">
-        SYSTEM: ONLINE // ENGINE: v125.1-FIXED [STABLE]
-    </div>
+    <div class="debug">SYSTEM: ONLINE // V126.0 // RETINA GRID</div>
 
     <script>
-        // --- CACHE CLEANER ---
-        (function () { try { localStorage.clear(); sessionStorage.clear(); } catch (e) { } })();
+        /**
+         * SOCRATIC ORB ENGINE v126.0 (Fixed)
+         * - Fixed: Background Image Loading
+         * - Fixed: Grid Resolution (Optimized for sharpness)
+         * - Fixed: Mouth Geometry
+         */
+
+        const canvas = document.getElementById('orbCanvas');
+        const ctx = canvas.getContext('2d');
 
         // --- 1. CONFIGURATION ---
-        const SPEC = {
-            logic: 320,        // Logical Coordinate Space
-            scale: 0.85,       // Visor Fit Scale
-            center: { x: 160, y: 153.6 },
-            grid: {
-                res: 1024,     // Texture Resolution
-                density: 1000, // Dots per axis
-                overlap: 1.6,  // Phosphor bleed
-                bg: '#000000',
-                glow: '#00ffff',
-                core: '#ffffff'
+
+        // We use a 640x640 grid which maps perfectly to high-DPI screens 
+        // without causing the "blocky" aliasing of the 1024 grid.
+        const RENDER_SIZE = 640;
+        const LOGICAL_SIZE = 320;
+        const SCALE = RENDER_SIZE / LOGICAL_SIZE;
+
+        const CONFIG = {
+            centerX: 160,
+            centerY: 160,
+            eyeGap: 38, // Slightly wider for the "cute" look
+            eyeW: 34,
+            eyeH: 46,
+            pupilRadius: 10,
+            mouthBaseY: 195,
+            color: {
+                glow: '#00ffff', // Cyan
+                core: '#ffffff', // White
+                bg: '#000000'
+            },
+            physics: {
+                accel: 0.15, // Softer movement
+                drag: 0.75
             }
         };
 
-        // --- 2. INIT & STATE ---
-        const canvas = document.getElementById('v125-face');
-        const stage = document.getElementById('stage');
-        const ctx = canvas.getContext('2d', { alpha: true });
-
-        // VFD GRID TEXTURE (Pre-Rendered)
-        const gridCanvas = document.createElement('canvas');
-        gridCanvas.width = SPEC.grid.res;
-        gridCanvas.height = SPEC.grid.res;
-        const gCtx = gridCanvas.getContext('2d');
-
-        // LOGIC BUFFER (MOVED OUTSIDE RENDER LOOP)
-        const logicCanvas = document.createElement('canvas');
-        logicCanvas.width = SPEC.logic;
-        logicCanvas.height = SPEC.logic;
-        const lCtx = logicCanvas.getContext('2d');
-
-        // PHYSICS STATE
-        const state = {
-            mouse: { x: 160, y: 320 }, // Default Low
-            smile: -0.5,
-            targetSmile: -0.5,
-            pupilL: { x: 0, y: 0, vx: 0, vy: 0 },
-            pupilR: { x: 0, y: 0, vx: 0, vy: 0 },
-            isIdle: true
+        let state = {
+            mouse: { x: 0, y: 0, active: false },
+            smileFactor: 0.0, // Start neutral
+            pupils: {
+                left: { x: 0, y: 0, vx: 0, vy: 0 },
+                right: { x: 0, y: 0, vx: 0, vy: 0 }
+            }
         };
 
-        // --- 3. PRE-RENDER GRID TEXTURE ---
-        const generateGrid = () => {
-            const step = SPEC.grid.res / SPEC.grid.density;
-            const radius = (step / 2) * SPEC.grid.overlap;
+        // --- 2. PRE-RENDER THE VFD GRID ---
 
-            gCtx.fillStyle = SPEC.grid.bg;
-            gCtx.fillRect(0, 0, SPEC.grid.res, SPEC.grid.res);
+        const gridCanvas = document.createElement('canvas');
+        gridCanvas.width = RENDER_SIZE;
+        gridCanvas.height = RENDER_SIZE;
+        const gridCtx = gridCanvas.getContext('2d');
 
-            // Optimization: Only draw dots, don't overdraw
-            for (let y = 0; y < SPEC.grid.res; y += step) {
-                for (let x = 0; x < SPEC.grid.res; x += step) {
-                    gCtx.beginPath();
-                    gCtx.arc(x + step / 2, y + step / 2, radius * 0.98, 0, Math.PI * 2);
-                    gCtx.fillStyle = SPEC.grid.glow;
-                    gCtx.fill();
+        function initGrid() {
+            gridCtx.fillStyle = CONFIG.color.bg;
+            gridCtx.fillRect(0, 0, RENDER_SIZE, RENDER_SIZE);
 
-                    gCtx.beginPath();
-                    gCtx.arc(x + step / 2, y + step / 2, radius * 0.90, 0, Math.PI * 2);
-                    gCtx.fillStyle = SPEC.grid.core;
-                    gCtx.fill();
+            // Grid Density: 2px dots (High resolution but clean)
+            const dotSize = 2;
+            const spacing = 3;
+
+            for (let y = 0; y < RENDER_SIZE; y += spacing) {
+                for (let x = 0; x < RENDER_SIZE; x += spacing) {
+                    // Cyan Glow
+                    gridCtx.fillStyle = CONFIG.color.glow;
+                    gridCtx.fillRect(x, y, dotSize, dotSize); // Square pixels for VFD look
+
+                    // White Core (Center pixel only)
+                    gridCtx.fillStyle = "rgba(255,255,255,0.6)";
+                    gridCtx.fillRect(x + 0.5, y + 0.5, 1, 1);
                 }
             }
-        };
-        generateGrid();
+        }
+        initGrid();
 
-        // --- 4. RESIZE HANDLER ---
-        const handleResize = () => {
-            const dpr = window.devicePixelRatio || 1;
-            const rect = stage.getBoundingClientRect();
 
-            // Safety check for 0-size (hidden) elements
-            if (rect.width === 0 || rect.height === 0) return;
+        // --- 3. PHYSICS & LOGIC ---
 
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            ctx.scale(dpr, dpr);
-            ctx.imageSmoothingEnabled = false; // Keep it retro/sharp
-        };
-        window.addEventListener('resize', handleResize);
+        function updatePhysics() {
+            // Target Smile: 1.0 if active, 0.2 (slight smile) if idle
+            // The "Winking" robot image implies a happy default state.
+            let targetSmile = state.mouse.active ? 1.0 : 0.2;
+            state.smileFactor += (targetSmile - state.smileFactor) * 0.1;
 
-        // Ensure layout is ready before first resize
-        setTimeout(handleResize, 50);
+            // Pupil Physics
+            updatePupil('left', -CONFIG.eyeGap);
+            updatePupil('right', CONFIG.eyeGap);
+        }
 
-        // --- 5. INPUT HANDLING ---
-        document.addEventListener('mousemove', (e) => {
-            state.isIdle = false;
-            state.targetSmile = 1.0;
+        function updatePupil(side, xOffset) {
+            const eyeCX = CONFIG.centerX + xOffset;
+            const eyeCY = CONFIG.centerY; // Eyes centered vertically
+            const pupil = state.pupils[side];
+            let targetX = 0, targetY = 0;
 
-            // Accurate Mouse Mapping
-            const rect = stage.getBoundingClientRect();
-            const relX = (e.clientX - rect.left) / rect.width;
-            const relY = (e.clientY - rect.top) / rect.height;
-
-            state.mouse.x = relX * SPEC.logic;
-            state.mouse.y = relY * SPEC.logic;
-        });
-
-        document.addEventListener('mouseleave', () => {
-            state.isIdle = true;
-            state.targetSmile = -0.5;
-            state.mouse.x = SPEC.center.x;
-            state.mouse.y = SPEC.center.y + 100; // Look down
-        });
-
-        // --- 6. RENDER FRAME ---
-        const render = () => {
-            // A. PHYSICS STEP
-            state.smile += (state.targetSmile - state.smile) * 0.12;
-
-            // Eye Convergence Logic
-            const solveEye = (eyeCX, eyeCY, currentPos) => {
+            if (state.mouse.active) {
+                // Calculate vector from Eye Center to Mouse
                 let dx = state.mouse.x - eyeCX;
                 let dy = state.mouse.y - eyeCY;
 
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const nx = dx / (dist || 1);
-                const ny = dy / (dist || 1);
-
-                const distFromCenter = Math.abs(state.mouse.x - SPEC.center.x);
-                let convergenceX = 0;
-                if (distFromCenter < 40) {
-                    const strength = 1.0 - (distFromCenter / 40);
-                    convergenceX = (eyeCX < SPEC.center.x) ? 16 * strength : -16 * strength;
+                // Convergence (Cross-eye) Logic
+                const distFromCenterAxis = Math.abs(state.mouse.x - CONFIG.centerX);
+                if (distFromCenterAxis < 40) {
+                    // Smoothly look inward
+                    const strength = 1.0 - (distFromCenterAxis / 40);
+                    dx += (side === 'left' ? 12 : -12) * strength;
                 }
 
-                const lookMag = Math.min(dist, 11);
-                const targetX = (nx * lookMag) + convergenceX;
-                const targetY = (ny * lookMag);
+                // Clamp to eye radius
+                const angle = Math.atan2(dy, dx);
+                const dist = Math.min(Math.sqrt(dx * dx + dy * dy), 12);
 
-                currentPos.vx += (targetX - currentPos.x) * 0.2;
-                currentPos.vy += (targetY - currentPos.y) * 0.2;
-                currentPos.vx *= 0.7;
-                currentPos.vy *= 0.7;
-                currentPos.x += currentPos.vx;
-                currentPos.y += currentPos.vy;
-            };
+                targetX = Math.cos(angle) * dist;
+                targetY = Math.sin(angle) * dist;
+            }
 
-            const leftEyeCX = 125 + SPEC.center.x - 160;
-            const rightEyeCX = 195 + SPEC.center.x - 160;
-            const eyeCY = SPEC.center.y;
-
-            solveEye(125, 153.6, state.pupilL);
-            solveEye(195, 153.6, state.pupilR);
+            // Apply Physics
+            pupil.vx += (targetX - pupil.x) * CONFIG.physics.accel;
+            pupil.vy += (targetY - pupil.y) * CONFIG.physics.accel;
+            pupil.vx *= CONFIG.physics.drag;
+            pupil.vy *= CONFIG.physics.drag;
+            pupil.x += pupil.vx;
+            pupil.y += pupil.vy;
+        }
 
 
-            // B. DRAWING PIPELINE (Reuse Buffer!)
-            // Clear Logic Buffer
-            lCtx.globalCompositeOperation = 'source-over';
-            lCtx.clearRect(0, 0, SPEC.logic, SPEC.logic);
+        // --- 4. RENDER CYCLE ---
 
-            // 1. Draw White Shapes (Source)
-            lCtx.fillStyle = '#FFFFFF';
-            lCtx.strokeStyle = '#FFFFFF';
-            lCtx.lineCap = 'round';
-            lCtx.save(); // Save context state before transforms
-            lCtx.translate(SPEC.center.x, SPEC.center.y);
-            lCtx.scale(SPEC.scale, SPEC.scale);
-            lCtx.translate(-SPEC.center.x, -SPEC.center.y);
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const cx = SPEC.center.x;
-            const cy = SPEC.center.y;
+            // Create Shape Buffer
+            ctx.save();
+            ctx.scale(SCALE, SCALE);
+
+            // Draw Shapes (Solid White)
+            ctx.fillStyle = '#fff';
 
             // Eyes
-            [125, 195].forEach((ex) => {
-                lCtx.beginPath();
-                lCtx.ellipse(ex, cy, 16, 22, 0, 0, Math.PI * 2);
-                lCtx.fill();
+            ctx.beginPath();
+            ctx.ellipse(CONFIG.centerX - CONFIG.eyeGap, CONFIG.centerY, CONFIG.eyeW / 2, CONFIG.eyeH / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(CONFIG.centerX + CONFIG.eyeGap, CONFIG.centerY, CONFIG.eyeW / 2, CONFIG.eyeH / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Mouth & Brows
+            drawMouth();
+            drawBrows();
+
+            ctx.restore();
+
+            // Composite: MASK Grid
+            ctx.globalCompositeOperation = 'source-in';
+            ctx.drawImage(gridCanvas, 0, 0);
+
+            // Composite: CUT OUT Pupils
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.save();
+            ctx.scale(SCALE, SCALE);
+
+            // Draw Pupils
+            const pL = state.pupils.left;
+            const pR = state.pupils.right;
+
+            ctx.beginPath();
+            ctx.arc((CONFIG.centerX - CONFIG.eyeGap) + pL.x, CONFIG.centerY + pL.y, CONFIG.pupilRadius, 0, Math.PI * 2);
+            ctx.arc((CONFIG.centerX + CONFIG.eyeGap) + pR.x, CONFIG.centerY + pR.y, CONFIG.pupilRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+            ctx.globalCompositeOperation = 'source-over';
+
+            requestAnimationFrame(() => {
+                updatePhysics();
+                draw();
             });
+        }
 
-            // Brows
-            const browY = cy - 30;
-            const arch = state.smile * -8;
-            [-1, 1].forEach(side => {
-                lCtx.save();
-                const bx = cx + (35 * side);
-                lCtx.translate(bx, browY);
-                lCtx.lineWidth = 6;
-                lCtx.beginPath();
-                lCtx.moveTo(-14, 4);
-                lCtx.quadraticCurveTo(0, -4 + arch, 14, 4);
-                lCtx.stroke();
-                lCtx.restore();
-            });
+        function drawMouth() {
+            const s = state.smileFactor;
+            const mouthW = 38;
+            const cx = CONFIG.centerX;
+            const cy = CONFIG.mouthBaseY;
 
-            // Mouth
-            const mouthY = 187.6;
-            const mw = 42;
-            const mt = 12 + (Math.abs(state.smile) * 10);
-            const mCurve = (state.smile > 0) ? state.smile * 25 : state.smile * 35;
+            // Organic Smile Math
+            // A smile curves UP, so corners are HIGHER than center.
+            // Spec: "Banana" shape.
 
-            lCtx.beginPath();
-            lCtx.moveTo(cx - mw, mouthY);
-            lCtx.quadraticCurveTo(cx, mouthY + mCurve - mt, cx + mw, mouthY);
-            lCtx.quadraticCurveTo(cx, mouthY + mCurve + mt, cx - mw, mouthY);
-            lCtx.fill();
+            const smileHeight = s * 15; // How deep the smile is
+            const thickness = 10 + (s * 4);
 
-            lCtx.restore(); // Restore scale/translate
+            ctx.beginPath();
+
+            if (s >= 0) {
+                // HAPPY MOUTH (U-shape)
+                // Top edge
+                ctx.moveTo(cx - mouthW, cy - smileHeight);
+                ctx.quadraticCurveTo(cx, cy + smileHeight, cx + mouthW, cy - smileHeight);
+                // Bottom edge (return)
+                ctx.quadraticCurveTo(cx, cy + smileHeight + thickness, cx - mouthW, cy - smileHeight);
+            } else {
+                // FROWN MOUTH (Arch-shape)
+                // Similar logic inverted
+                const f = Math.abs(s);
+                ctx.moveTo(cx - mouthW, cy + (f * 10));
+                ctx.quadraticCurveTo(cx, cy - (f * 10), cx + mouthW, cy + (f * 10));
+                ctx.quadraticCurveTo(cx, cy - (f * 10) + thickness, cx - mouthW, cy + (f * 10));
+            }
+
+            ctx.fill();
+        }
+
+        function drawBrows() {
+            const browY = CONFIG.centerY - 35;
+            const offset = state.smileFactor * 5; // Raise brows when smiling
+            const tilt = state.smileFactor * 0.2; // Tilt angle
+
+            ctx.save();
+
+            // Left Brow
+            ctx.translate(CONFIG.centerX - CONFIG.eyeGap, browY - offset);
+            ctx.rotate(-tilt);
+            ctx.beginPath();
+            ctx.roundRect(-16, -4, 32, 8, 4);
+            ctx.fill();
+            ctx.restore();
+
+            ctx.save();
+            // Right Brow
+            ctx.translate(CONFIG.centerX + CONFIG.eyeGap, browY - offset);
+            ctx.rotate(tilt); // Mirror tilt
+            ctx.beginPath();
+            ctx.roundRect(-16, -4, 32, 8, 4);
+            ctx.fill();
+            ctx.restore();
+        }
 
 
-            // 2. Composite Grid (Mask)
-            lCtx.globalCompositeOperation = 'source-in';
-            // Draw high-res grid into low-res buffer
-            lCtx.drawImage(gridCanvas, 0, 0, SPEC.logic, SPEC.logic);
+        // --- 5. INPUT HANDLING ---
 
-            // 3. Cut Pupils (Destination Out)
-            lCtx.globalCompositeOperation = 'destination-out';
+        window.addEventListener('mousemove', (e) => {
+            state.mouse.active = true;
 
-            // Left Pupil
-            lCtx.beginPath();
-            lCtx.arc(125 + state.pupilL.x, 153.6 + state.pupilL.y, 11, 0, Math.PI * 2);
-            lCtx.fill();
+            // Map window coordinates to canvas logical coordinates
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = LOGICAL_SIZE / rect.width;
+            const scaleY = LOGICAL_SIZE / rect.height;
 
-            // Right Pupil
-            lCtx.beginPath();
-            lCtx.arc(195 + state.pupilR.x, 153.6 + state.pupilR.y, 11, 0, Math.PI * 2);
-            lCtx.fill();
+            state.mouse.x = (e.clientX - rect.left) * scaleX;
+            state.mouse.y = (e.clientY - rect.top) * scaleY;
+        });
 
+        window.addEventListener('mouseleave', () => {
+            state.mouse.active = false;
+        });
 
-            // C. FINAL RENDER TO SCREEN
-            // Clear Screen
-            const dpr = window.devicePixelRatio || 1;
-            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+        // START
+        requestAnimationFrame(draw);
 
-            // Draw Logic Buffer Scaled to Stage
-            ctx.drawImage(logicCanvas,
-                0, 0, SPEC.logic, SPEC.logic,
-                0, 0, stage.clientWidth, stage.clientHeight
-            );
-
-            requestAnimationFrame(render);
-        };
-
-        render();
     </script>
 </body>
 
