@@ -3,21 +3,26 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE SOCRATIC ORB | v130.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>THE SOCRATIC ORB | v135.0</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
+        /* v135 CLEAN NAMESPACE */
         :root {
-            --bg-color: #000000;
-            --orb-size: min(90vw, 90vh);
+            --socratic-bg: #000000;
+            --socratic-cyan: #00ffff;
+            --socratic-white: #ffffff;
+            --socratic-size: min(90vw, 90vh);
         }
 
-        body {
+        body,
+        html {
             margin: 0;
-            background: var(--bg-color);
-            height: 100vh;
-            width: 100vw;
+            padding: 0;
+            background: var(--socratic-bg);
+            height: 100%;
+            width: 100%;
             overflow: hidden;
             display: flex;
             align-items: center;
@@ -25,79 +30,93 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
-        /* --- THE ORB CONTAINER --- */
-        .orb-stage {
+        /* --- THE STAGE --- */
+        .socratic-v135-stage {
             position: relative;
-            width: var(--orb-size);
-            height: var(--orb-size);
+            width: var(--socratic-size);
+            height: var(--socratic-size);
             display: flex;
             align-items: center;
             justify-content: center;
             background: #000;
+            /* Solid black background */
         }
 
-        /* --- THE ROBOT HULL --- */
-        .orb-hull {
+        /* --- THE HULL --- */
+        .socratic-v135-hull {
             position: absolute;
             inset: 0;
-            /* Relative path with cache-busting v130 */
-            background-image: url('/static/trim_bot_avenger.png?v=130');
+            background-image: url('/static/socratic_hull_v135.png?v=135');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
             z-index: 1;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
         }
 
-        /* --- THE VFD FACE (Canvas) --- */
-        #face-canvas {
+        /* --- THE FACE CANVAS --- */
+        #socratic-v135-canvas {
             position: absolute;
             z-index: 2;
             width: 100%;
             height: 100%;
             pointer-events: none;
-            /* Canvas glow filter for performance */
-            filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.4));
+            /* High-performance hardware glow */
+            filter: drop-shadow(0 0 12px rgba(0, 255, 255, 0.45));
         }
 
-        /* --- UI OVERLAY --- */
-        .ui-layer {
+        /* --- THE FOOTER --- */
+        .socratic-v135-footer {
             position: absolute;
             bottom: 30px;
             left: 0;
             width: 100%;
             text-align: center;
-            color: #00ffff;
+            color: var(--socratic-cyan);
             font-size: 10px;
             pointer-events: none;
             z-index: 10;
-            opacity: 0.8;
+            opacity: 0.9;
             letter-spacing: 0.25em;
             text-transform: uppercase;
-            text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.8);
         }
     </style>
 </head>
 
 <body>
 
-    <div class="orb-stage" id="stage">
-        <div class="orb-hull" id="hull-layer"></div>
-        <canvas id="face-canvas"></canvas>
+    <div class="socratic-v135-stage" id="socratic-stage">
+        <div class="socratic-v135-hull" id="socratic-hull"></div>
+        <canvas id="socratic-v135-canvas"></canvas>
     </div>
 
-    <div class="ui-layer">
-        SYSTEM: ONLINE // ENGINE: v130.0 [FINAL-SYNC] // SOVEREIGN SENTINEL
+    <div class="socratic-v135-footer">
+        SYSTEM: ONLINE // ENGINE: v135.0 [CACHE-KILLER] // SOVEREIGN SENTINEL
     </div>
 
     <script>
-        console.log("SOCRATIC ENGINE v130.0 STARTING...");
+        // --- CACHE & SERVICE WORKER KILLER ---
+        (function () {
+            localStorage.clear();
+            sessionStorage.clear();
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                    for (let registration of registrations) {
+                        registration.unregister();
+                        console.log("Service Worker Unregistered");
+                    }
+                });
+            }
+        })();
 
-        // --- CORE SPEC (v125.0 Logic) ---
+        // --- SPECIFICATION v125.0 ---
         const SPEC = {
-            gridRes: 1024,        // High-density dot matrix
-            logicSize: 320,      // Logical coordinate space
-            center: { x: 160, y: 153.6 }, // 0.48 vertical shift
-            visorScale: 0.85,    // Visor aperture fit
+            gridRes: 1024,
+            logicSize: 320,
+            center: { x: 160, y: 153.6 },
+            visorScale: 0.85,
             colors: {
                 bg: '#000000',
                 glow: '#00ffff',
@@ -107,36 +126,29 @@
             overlap: 1.6
         };
 
-        const canvas = document.getElementById('face-canvas');
-        const stage = document.getElementById('stage');
+        const canvas = document.getElementById('socratic-v135-canvas');
+        const stage = document.getElementById('socratic-stage');
         const ctx = canvas.getContext('2d', { alpha: true });
 
-        // Logic Buffer
         const buffer = document.createElement('canvas');
         buffer.width = SPEC.logicSize;
         buffer.height = SPEC.logicSize;
         const bCtx = buffer.getContext('2d');
 
-        // State
-        let mouseX = 0, mouseY = 0;
-        let smileFactor = -0.5; // Idle State: -0.5 Frown
-        let targetSmile = -0.5;
-        let eyePos = { x: 0, y: 0 };
-        let eyeVel = { x: 0, y: 0 };
+        let mouseX = 0, mouseY = 0, smileFactor = -0.5, targetSmile = -0.5;
+        let eyePos = { x: 0, y: 0 }, eyeVel = { x: 0, y: 0 };
         let isOffScreen = true;
 
-        // Resize
-        const handleResize = () => {
+        const init = () => {
             const dpr = window.devicePixelRatio || 1;
             const rect = stage.getBoundingClientRect();
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
             ctx.scale(dpr, dpr);
         };
-        window.addEventListener('resize', handleResize);
-        handleResize();
+        window.addEventListener('resize', init);
+        init();
 
-        // Interaction
         document.addEventListener('mousemove', (e) => {
             isOffScreen = false;
             mouseX = (e.clientX / window.innerWidth) * 2 - 1;
@@ -149,7 +161,6 @@
             targetSmile = -0.5;
         });
 
-        // Shape Renderer
         const drawFace = () => {
             bCtx.clearRect(0, 0, SPEC.logicSize, SPEC.logicSize);
             bCtx.save();
@@ -160,39 +171,40 @@
             const cx = SPEC.center.x;
             const cy = SPEC.center.y;
 
-            // 1. EYES (Vertical Pills + Hollow Core)
-            const eyeW = 32; const eyeH = 44; const eyeGap = 35;
-            const pupilRadius = 11;
-
+            // Pill Eyes + Hollow Core
+            const eyeW = 32, eyeH = 44, eyeGap = 35, pupilR = 11;
             [-1, 1].forEach(side => {
                 const ex = cx + (eyeGap * side) + eyePos.x;
                 const ey = cy + eyePos.y;
-
-                bCtx.fillStyle = '#FFFFFF';
+                bCtx.fillStyle = '#FFF';
                 bCtx.beginPath();
                 bCtx.ellipse(ex, ey, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
                 bCtx.fill();
-
-                // Hollow Pupil
                 bCtx.globalCompositeOperation = 'destination-out';
                 bCtx.beginPath();
-                bCtx.arc(ex + (eyePos.x * 0.2), ey + (eyePos.y * 0.2), pupilRadius, 0, Math.PI * 2);
+                bCtx.arc(ex + (eyePos.x * 0.2), ey + (eyePos.y * 0.2), pupilR, 0, Math.PI * 2);
                 bCtx.fill();
                 bCtx.globalCompositeOperation = 'source-over';
             });
 
-            // 2. EYEBROWS
-            const browW = 32;
-            const browY = cy - 30;
-            bCtx.strokeStyle = '#FFFFFF';
-            bCtx.lineWidth = 4;
-            bCtx.lineCap = 'round';
+            // Tapered Mouth
+            const mouthW = 42, mouthY = cy + 34;
+            const thick = 6 + (Math.abs(smileFactor) * 5);
+            const curve = (smileFactor > 0) ? smileFactor * 12 : smileFactor * 18;
+            const cornerY = (smileFactor < 0) ? -smileFactor * 8 : 0;
+            bCtx.fillStyle = '#FFF';
+            bCtx.beginPath();
+            bCtx.moveTo(cx - mouthW, mouthY + cornerY);
+            bCtx.quadraticCurveTo(cx, mouthY + curve - thick, cx + mouthW, mouthY + cornerY);
+            bCtx.quadraticCurveTo(cx, mouthY + curve + thick, cx - mouthW, mouthY + cornerY);
+            bCtx.fill();
 
+            // Brows
+            const browW = 32, browY = cy - 30;
+            bCtx.strokeStyle = '#FFF'; bCtx.lineWidth = 4; bCtx.lineCap = 'round';
             [-1, 1].forEach(side => {
-                const bx = cx + (eyeGap * side) + (eyePos.x * 0.5);
-                const by = browY + (eyePos.y * 0.5);
                 bCtx.save();
-                bCtx.translate(bx, by);
+                bCtx.translate(cx + (eyeGap * side) + (eyePos.x * 0.5), browY + (eyePos.y * 0.5));
                 bCtx.rotate(side * (smileFactor * 0.2));
                 bCtx.beginPath();
                 bCtx.moveTo(-browW / 2, 5);
@@ -200,58 +212,31 @@
                 bCtx.stroke();
                 bCtx.restore();
             });
-
-            // 3. MOUTH (Dynamic Tapered Bar)
-            const mouthW = 42;
-            const mouthY = cy + 34;
-            const thickness = 6 + (Math.abs(smileFactor) * 5);
-            const curviness = (smileFactor > 0) ? smileFactor * 12 : smileFactor * 18;
-            const cornerY = (smileFactor < 0) ? -smileFactor * 8 : 0;
-
-            bCtx.fillStyle = '#FFFFFF';
-            bCtx.beginPath();
-            bCtx.moveTo(cx - mouthW, mouthY + cornerY);
-            bCtx.quadraticCurveTo(cx, mouthY + curviness - thickness, cx + mouthW, mouthY + cornerY);
-            bCtx.quadraticCurveTo(cx, mouthY + curviness + thickness, cx - mouthW, mouthY + cornerY);
-            bCtx.closePath();
-            bCtx.fill();
-
             bCtx.restore();
         };
 
-        const animate = () => {
-            // physics
+        const loop = () => {
             smileFactor += (targetSmile - smileFactor) * 0.12;
-            const pX = isOffScreen ? 0 : mouseX * 8;
-            const pY = isOffScreen ? 0 : -mouseY * 8;
-            eyeVel.x += (pX - eyePos.x) * 0.2;
-            eyeVel.y += (pY - eyePos.y) * 0.2;
-            eyeVel.x *= 0.7; eyeVel.y *= 0.7;
-            eyePos.x += eyeVel.x; eyePos.y += eyeVel.y;
+            const pX = isOffScreen ? 0 : mouseX * 8, pY = isOffScreen ? 0 : -mouseY * 8;
+            eyeVel.x += (pX - eyePos.x) * 0.2; eyeVel.y += (pY - eyePos.y) * 0.2;
+            eyeVel.x *= 0.7; eyeVel.y *= 0.7; eyePos.x += eyeVel.x; eyePos.y += eyeVel.y;
 
             drawFace();
-
-            // VFD Rendering
-            const scale = stage.clientWidth / SPEC.logicSize;
             ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
-
-            const imgData = bCtx.getImageData(0, 0, SPEC.logicSize, SPEC.logicSize).data;
+            const scale = stage.clientWidth / SPEC.logicSize;
+            const data = bCtx.getImageData(0, 0, SPEC.logicSize, SPEC.logicSize).data;
             const dotStep = SPEC.logicSize / SPEC.dotsPerAxis;
-            const dotRadius = (dotStep / 2) * SPEC.overlap;
+            const dotR = (dotStep / 2) * SPEC.overlap;
 
             for (let y = 0; y < SPEC.logicSize; y += dotStep) {
                 for (let x = 0; x < SPEC.logicSize; x += dotStep) {
                     const idx = (Math.floor(y) * SPEC.logicSize + Math.floor(x)) * 4;
-                    if (imgData[idx + 3] > 120) {
-                        const sx = x * scale;
-                        const sy = y * scale;
-                        const r = dotRadius * scale;
-
+                    if (data[idx + 3] > 120) {
+                        const sx = x * scale, sy = y * scale, r = dotR * scale;
                         ctx.beginPath();
                         ctx.arc(sx, sy, r * 0.98, 0, Math.PI * 2);
                         ctx.fillStyle = SPEC.colors.glow;
                         ctx.fill();
-
                         ctx.beginPath();
                         ctx.arc(sx, sy, r * 0.9, 0, Math.PI * 2);
                         ctx.fillStyle = SPEC.colors.core;
@@ -259,10 +244,10 @@
                     }
                 }
             }
-            requestAnimationFrame(animate);
+            requestAnimationFrame(loop);
         };
-
-        animate();
+        loop();
+        console.log("v135.0 CACHE-KILLER INITIALIZED");
     </script>
 </body>
 
