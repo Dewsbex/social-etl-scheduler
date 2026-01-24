@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE SOCRATIC ORB | v125.0</title>
+    <title>THE SOCRATIC ORB | v130.0</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -25,6 +25,7 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
+        /* --- THE ORB CONTAINER --- */
         .orb-stage {
             position: relative;
             width: var(--orb-size);
@@ -32,26 +33,33 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            background: #000;
         }
 
+        /* --- THE ROBOT HULL --- */
         .orb-hull {
             position: absolute;
             inset: 0;
-            background-image: url('/static/trim_bot.png');
+            /* Relative path with cache-busting v130 */
+            background-image: url('/static/trim_bot_avenger.png?v=130');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
             z-index: 1;
         }
 
+        /* --- THE VFD FACE (Canvas) --- */
         #face-canvas {
             position: absolute;
             z-index: 2;
             width: 100%;
             height: 100%;
             pointer-events: none;
+            /* Canvas glow filter for performance */
+            filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.4));
         }
 
+        /* --- UI OVERLAY --- */
         .ui-layer {
             position: absolute;
             bottom: 30px;
@@ -62,9 +70,10 @@
             font-size: 10px;
             pointer-events: none;
             z-index: 10;
-            opacity: 0.7;
+            opacity: 0.8;
             letter-spacing: 0.25em;
-            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+            text-transform: uppercase;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
         }
     </style>
 </head>
@@ -72,21 +81,23 @@
 <body>
 
     <div class="orb-stage" id="stage">
-        <div class="orb-hull"></div>
+        <div class="orb-hull" id="hull-layer"></div>
         <canvas id="face-canvas"></canvas>
     </div>
 
     <div class="ui-layer">
-        SYSTEM: ONLINE // ENGINE: v125.0 // SOVEREIGN SENTINEL
+        SYSTEM: ONLINE // ENGINE: v130.0 [FINAL-SYNC] // SOVEREIGN SENTINEL
     </div>
 
     <script>
-        // --- 1. CORE CONFIGURATION (v125.0) ---
+        console.log("SOCRATIC ENGINE v130.0 STARTING...");
+
+        // --- CORE SPEC (v125.0 Logic) ---
         const SPEC = {
-            gridRes: 1024,        // High-density rendering
+            gridRes: 1024,        // High-density dot matrix
             logicSize: 320,      // Logical coordinate space
-            center: { x: 160, y: 153.6 }, // 0.48 shift
-            visorScale: 0.85,
+            center: { x: 160, y: 153.6 }, // 0.48 vertical shift
+            visorScale: 0.85,    // Visor aperture fit
             colors: {
                 bg: '#000000',
                 glow: '#00ffff',
@@ -100,7 +111,7 @@
         const stage = document.getElementById('stage');
         const ctx = canvas.getContext('2d', { alpha: true });
 
-        // Dual Buffer Architecture
+        // Logic Buffer
         const buffer = document.createElement('canvas');
         buffer.width = SPEC.logicSize;
         buffer.height = SPEC.logicSize;
@@ -108,22 +119,22 @@
 
         // State
         let mouseX = 0, mouseY = 0;
-        let smileFactor = -0.5; // Starts at Idle Frown
+        let smileFactor = -0.5; // Idle State: -0.5 Frown
         let targetSmile = -0.5;
         let eyePos = { x: 0, y: 0 };
         let eyeVel = { x: 0, y: 0 };
         let isOffScreen = true;
 
-        // --- 2. SETUP & RESIZE ---
-        const init = () => {
+        // Resize
+        const handleResize = () => {
             const dpr = window.devicePixelRatio || 1;
             const rect = stage.getBoundingClientRect();
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
             ctx.scale(dpr, dpr);
         };
-        window.addEventListener('resize', init);
-        init();
+        window.addEventListener('resize', handleResize);
+        handleResize();
 
         // Interaction
         document.addEventListener('mousemove', (e) => {
@@ -138,12 +149,10 @@
             targetSmile = -0.5;
         });
 
-        // --- 3. RENDERING ENGINE ---
-        const drawFaceShapes = () => {
+        // Shape Renderer
+        const drawFace = () => {
             bCtx.clearRect(0, 0, SPEC.logicSize, SPEC.logicSize);
             bCtx.save();
-
-            // Global Transform
             bCtx.translate(SPEC.center.x, SPEC.center.y);
             bCtx.scale(SPEC.visorScale, SPEC.visorScale);
             bCtx.translate(-SPEC.center.x, -SPEC.center.y);
@@ -151,7 +160,7 @@
             const cx = SPEC.center.x;
             const cy = SPEC.center.y;
 
-            // --- 2.1 EYES & HOLLOW PUPILS ---
+            // 1. EYES (Vertical Pills + Hollow Core)
             const eyeW = 32; const eyeH = 44; const eyeGap = 35;
             const pupilRadius = 11;
 
@@ -172,11 +181,9 @@
                 bCtx.globalCompositeOperation = 'source-over';
             });
 
-            // --- 2.2 EYEBROWS ---
+            // 2. EYEBROWS
             const browW = 32;
             const browY = cy - 30;
-            const tilt = smileFactor * 15;
-
             bCtx.strokeStyle = '#FFFFFF';
             bCtx.lineWidth = 4;
             bCtx.lineCap = 'round';
@@ -184,7 +191,6 @@
             [-1, 1].forEach(side => {
                 const bx = cx + (eyeGap * side) + (eyePos.x * 0.5);
                 const by = browY + (eyePos.y * 0.5);
-
                 bCtx.save();
                 bCtx.translate(bx, by);
                 bCtx.rotate(side * (smileFactor * 0.2));
@@ -195,21 +201,17 @@
                 bCtx.restore();
             });
 
-            // --- 3. THE MOUTH (DYNAMIC TAPERED BAR) ---
+            // 3. MOUTH (Dynamic Tapered Bar)
             const mouthW = 42;
             const mouthY = cy + 34;
-            // logic: 12 + (abs(smileFactor) * 10)
             const thickness = 6 + (Math.abs(smileFactor) * 5);
             const curviness = (smileFactor > 0) ? smileFactor * 12 : smileFactor * 18;
             const cornerY = (smileFactor < 0) ? -smileFactor * 8 : 0;
 
             bCtx.fillStyle = '#FFFFFF';
             bCtx.beginPath();
-            // Start at Left Corner
             bCtx.moveTo(cx - mouthW, mouthY + cornerY);
-            // Top Curve
             bCtx.quadraticCurveTo(cx, mouthY + curviness - thickness, cx + mouthW, mouthY + cornerY);
-            // Bottom Curve (meets at corners for tapering)
             bCtx.quadraticCurveTo(cx, mouthY + curviness + thickness, cx - mouthW, mouthY + cornerY);
             bCtx.closePath();
             bCtx.fill();
@@ -217,26 +219,22 @@
             bCtx.restore();
         };
 
-        const renderMatrix = () => {
+        const animate = () => {
             // physics
             smileFactor += (targetSmile - smileFactor) * 0.12;
-
             const pX = isOffScreen ? 0 : mouseX * 8;
             const pY = isOffScreen ? 0 : -mouseY * 8;
-
             eyeVel.x += (pX - eyePos.x) * 0.2;
             eyeVel.y += (pY - eyePos.y) * 0.2;
             eyeVel.x *= 0.7; eyeVel.y *= 0.7;
             eyePos.x += eyeVel.x; eyePos.y += eyeVel.y;
 
-            drawFaceShapes();
+            drawFace();
 
-            // Clear Main Canvas
+            // VFD Rendering
             const scale = stage.clientWidth / SPEC.logicSize;
             ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
 
-            // Rasterize logical buffer to high-res grid
-            // We'll read the logical buffer and draw phosphor dots
             const imgData = bCtx.getImageData(0, 0, SPEC.logicSize, SPEC.logicSize).data;
             const dotStep = SPEC.logicSize / SPEC.dotsPerAxis;
             const dotRadius = (dotStep / 2) * SPEC.overlap;
@@ -249,14 +247,11 @@
                         const sy = y * scale;
                         const r = dotRadius * scale;
 
-                        // Solid Phosphor Rendering
-                        // Outer Glow
                         ctx.beginPath();
                         ctx.arc(sx, sy, r * 0.98, 0, Math.PI * 2);
                         ctx.fillStyle = SPEC.colors.glow;
                         ctx.fill();
 
-                        // Inner Core
                         ctx.beginPath();
                         ctx.arc(sx, sy, r * 0.9, 0, Math.PI * 2);
                         ctx.fillStyle = SPEC.colors.core;
@@ -264,11 +259,10 @@
                     }
                 }
             }
-
-            requestAnimationFrame(renderMatrix);
+            requestAnimationFrame(animate);
         };
 
-        renderMatrix();
+        animate();
     </script>
 </body>
 
