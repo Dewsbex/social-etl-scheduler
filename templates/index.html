@@ -1,317 +1,289 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Socratic Orb: Dark Avenger (v125.3)</title>
-    <style>
-        body {
-            background-color: #0d0d0d;
-            /* Matches dark vignette of the image */
-            margin: 0;
-            height: 100vh;
-            width: 100vw;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-        }
-
-        /* 1. THE CHASSIS CONTAINER 
-           Locks the aspect ratio to the image dimensions.
-           Ensures the 'canvas' coordinates are always relative to the bot, not the window.
-        */
-        #chassis {
-            position: relative;
-            /* The asset is square. We lock the container to 1:1 */
-            aspect-ratio: 1 / 1;
-
-            /* Responsive Sizing: 
-               Fills 95% of whichever is smaller (width or height).
-               This ensures the whole bot is always visible. */
-            width: min(95vw, 95vh);
-            height: min(95vw, 95vh);
-
-            /* The Robot Image */
-            background: url('Trim%20Bot%20Dark%20Avenger.jpg') no-repeat center center;
-            /* Fallback to GitHub raw content if local file missing */
-            background-image: url('Trim%20Bot%20Dark%20Avenger.jpg'), url('https://raw.githubusercontent.com/Dewsbex/The-socratic-orb/main/Trim%20Bot%20Dark%20Avenger.jpg');
-
-            background-size: contain;
-        }
-
-        /* 2. THE VISOR MAPPING (CALIBRATED TO JPG)
-           These % values map the canvas to the black circular glass.
-        */
-        canvas {
-            position: absolute;
-
-            /* Y-AXIS: Distance from top of the horns to start of glass */
-            top: 27%;
-
-            /* WIDTH: The diameter of the glass circle relative to full image width */
-            width: 41%;
-
-            /* X-AXIS: Center horizontally */
-            left: 50%;
-            transform: translateX(-50%);
-
-            /* Force square aspect ratio for the face logic */
-            aspect-ratio: 1 / 1;
-
-            /* Visual styles */
-            image-rendering: pixelated;
-            /* border: 1px solid rgba(0, 255, 255, 0.2); Un-comment to debug alignment */
-            border-radius: 50%;
-            /* Optional: Clips corners if they bleed out */
-        }
-    </style>
+    <title>Socratic Snowman Scheduler</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 </head>
 
 <body>
 
-    <div id="chassis">
-        <canvas id="orbCanvas" width="1024" height="1024"></canvas>
+    <!-- 3D Background -->
+    <div id="canvas-orb"></div>
+
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+        <header class="top-bar">
+            <h1 class="glitch-text" data-text="SOCIAL ETL SCHEDULER">SOCIAL ETL SCHEDULER</h1>
+            <div class="status-panel">
+                STATUS: <span id="api-status" class="status-indicator">INITIALIZING</span>
+            </div>
+        </header>
+
+        <main class="dashboard-grid">
+            <!-- Left: Terminal Logs -->
+            <section class="terminal-panel">
+                <div class="panel-header">>> SYSTEM LOGS</div>
+                <div id="log-container" class="terminal-body">
+                    <div class="log-entry">> Initializing Socratic Core...</div>
+                    <div class="log-entry">> Establishing Uplink...</div>
+                </div>
+            </section>
+
+            <!-- Right: Controls & Events -->
+            <section class="control-panel">
+                <div class="panel-header">>> FOUND EVENTS</div>
+                <div id="events-container" class="events-body">
+                    <ul id="event-list">
+                        <!-- Events populated here -->
+                    </ul>
+                </div>
+
+                <div class="action-area">
+                    <button id="sync-btn" class="cyber-btn" onclick="triggerSync()">
+                        <span class="btn-content">[ INITIATE SYNC ]</span>
+                        <span class="btn-glitch"></span>
+                    </button>
+                </div>
+            </section>
+        </main>
     </div>
 
+    <!-- Application Logic -->
+    <script>
+        // --- API Interaction Logic ---
+
+        function triggerSync() {
+            const btn = document.getElementById('sync-btn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="btn-content">[ SYNCING... ]</span>';
+
+            addLog("Manual Sync Initiated...");
+
+            fetch('/api/trigger', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    addLog("Response: " + data.message);
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
+                    }, 2000);
+                })
+                .catch(err => {
+                    addLog("Error: " + err);
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
+                });
+        }
+
+        function addLog(message) {
+            const container = document.getElementById('log-container');
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.innerText = "> " + message;
+            container.prepend(div);
+        }
+
+        function fetchLogs() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    // Update Logs
+                    const container = document.getElementById('log-container');
+                    container.innerHTML = '';
+                    if (data.logs.length === 0) {
+                        container.innerHTML = '<div class="log-entry">> No local logs.</div>';
+                    } else {
+                        data.logs.forEach((log) => {
+                            const div = document.createElement('div');
+                            div.className = 'log-entry';
+                            div.innerText = "> " + log;
+                            container.appendChild(div);
+                        });
+                    }
+
+                    // Update Status
+                    const statusEl = document.getElementById('api-status');
+                    statusEl.innerText = data.status;
+                    if (data.status === "RUNNING") {
+                        statusEl.className = "status-indicator status-running";
+                        document.getElementById('sync-btn').disabled = true;
+                        document.getElementById('sync-btn').innerHTML = '<span class="btn-content">[ RUNNING... ]</span>';
+                    } else {
+                        statusEl.className = "status-indicator status-idle";
+                        if (document.getElementById('sync-btn').innerText.includes("RUNNING")) {
+                            document.getElementById('sync-btn').disabled = false;
+                            document.getElementById('sync-btn').innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
+                        }
+                    }
+
+                    // Update Events
+                    const eventList = document.getElementById('event-list');
+                    eventList.innerHTML = '';
+
+                    if (data.events && data.events.length > 0) {
+                        data.events.forEach(event => {
+                            const li = document.createElement('li');
+                            li.className = 'event-item';
+
+                            const subjects = event.subjects ? event.subjects.join(', ') : 'GENERAL';
+                            const time = event.start_time ? new Date(event.start_time).toLocaleString() : 'TBD';
+
+                            li.innerHTML = `
+                                <div class="event-header">
+                                    <span class="event-title">${event.event_title}</span>
+                                    <span class="event-tag">${subjects}</span>
+                                </div>
+                                <div class="event-time">${time}</div>
+                                <div class="event-desc">${event.description || ''}</div>
+                            `;
+                            eventList.appendChild(li);
+                        });
+                    } else {
+                        eventList.innerHTML = '<li class="event-placeholder">> NO DATA FRAGMENTS DETECTED</li>';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('api-status').innerText = "DISCONNECTED";
+                    document.getElementById('api-status').className = "status-indicator status-offline";
+                });
+
+            setTimeout(fetchLogs, 2000);
+        }
+
+        // Start Polling
+        fetchLogs();
+    </script>
+
+    <!-- 3D Visualization Logic -->
     <script>
         /**
-         * SOCRATIC ORB VFD - DARK AVENGER BUILD (v125.3)
-         * -------------------------------------------------
-         * SPECIFICATION:
-         * - Asset: Trim Bot Dark Avenger.jpg
-         * - Logic: 320x320 coord space mapped to 1024px physical grid.
-         * - Physics: "Antigravity" smooth lerp + convergence zone tracking.
+         * Initialize Socratic Snowman Orb
          */
-
-        // --- CONFIGURATION ---
-        const CONFIG = {
-            centerX: 160,
-            centerY: 153.6,
-            scale: 0.85,    // Global scale to float face inside the aperture
-            eyeGap: 35,     // Distance from center to eye
-            eyeW: 32,
-            eyeH: 44,
-            pupilRadius: 11,
-            colors: { bg: '#000000', glow: '#00ffff', core: '#ffffff' },
-            physics: { accel: 0.2, drag: 0.7, blend: 0.12 }
-        };
-
-        // --- STATE ---
-        let state = {
-            mouse: { x: 0, y: 0, active: false },
-            smileFactor: -0.5, // Start with Idle Frown
-            pupils: {
-                left: { x: 0, y: 0, vx: 0, vy: 0 },
-                right: { x: 0, y: 0, vx: 0, vy: 0 }
-            }
-        };
-
-        // --- 1. INIT VFD TEXTURE (1024x1024) ---
-        // We pre-render the dots to improve performance
-        const gridCanvas = document.createElement('canvas');
-        gridCanvas.width = 1024;
-        gridCanvas.height = 1024;
-        const gridCtx = gridCanvas.getContext('2d');
-
-        function initGrid() {
-            // Black background
-            gridCtx.fillStyle = CONFIG.colors.bg;
-            gridCtx.fillRect(0, 0, 1024, 1024);
-
-            const dotSize = 1024 / 1000; // 1000 dots density
-            const radius = dotSize * 0.8;
-
-            for (let y = 0; y < 1024; y += dotSize * 1.2) {
-                for (let x = 0; x < 1024; x += dotSize * 1.2) {
-                    // 1. Cyan Glow (Outer)
-                    gridCtx.fillStyle = CONFIG.colors.glow;
-                    gridCtx.beginPath();
-                    gridCtx.arc(x, y, radius * 1.6, 0, Math.PI * 2);
-                    gridCtx.fill();
-                    // 2. White Core (Inner)
-                    gridCtx.fillStyle = CONFIG.colors.core;
-                    gridCtx.beginPath();
-                    gridCtx.arc(x, y, radius * 0.9, 0, Math.PI * 2);
-                    gridCtx.fill();
+        function initSnowmanOrb(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            // 1. Scene Setup
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(24, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.z = 13;
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, physicallyCorrectLights: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+            const resize = () => {
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                renderer.setSize(w, h);
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+            };
+            window.addEventListener('resize', resize);
+            resize();
+            // 2. Lighting
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const point1 = new THREE.PointLight(0xffeedd, 1.2); point1.position.set(5, 5, 5); scene.add(point1);
+            const point2 = new THREE.PointLight(0xddddff, 0.8); point2.position.set(-5, 5, 5); scene.add(point2);
+            const rim = new THREE.PointLight(0xffffff, 1.5); rim.position.set(0, 5, -5); scene.add(rim);
+            // 3. Object Group
+            const group = new THREE.Group();
+            scene.add(group);
+            // Helpers
+            const pNoise = (x, y, z) => Math.sin(x * 3.2 + Math.cos(y * 2.1)) * Math.cos(z * 1.8 + Math.sin(x * 1.5));
+            const createSnowTexture = () => {
+                const size = 512; const canvas = document.createElement('canvas');
+                canvas.width = size; canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#cccccc'; ctx.fillRect(0, 0, size, size);
+                for (let i = 0; i < 8000; i++) {
+                    const x = Math.random() * size; const y = Math.random() * size; const r = Math.random() * 1.5;
+                    ctx.fillStyle = Math.random() > 0.5 ? '#ffffff' : '#aaaaaa';
+                    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
                 }
+                return new THREE.CanvasTexture(canvas);
+            };
+            // Body
+            const bodyGeo = new THREE.SphereGeometry(1.5, 128, 128);
+            const posAttribute = bodyGeo.attributes.position;
+            const vertex = new THREE.Vector3();
+            for (let i = 0; i < posAttribute.count; i++) {
+                vertex.fromBufferAttribute(posAttribute, i);
+                const n = pNoise(vertex.x, vertex.y, vertex.z);
+                vertex.multiplyScalar(1.0 + (n * 0.08));
+                posAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
             }
-        }
-        initGrid();
-
-        // --- 2. RENDER LOOP ---
-        const canvas = document.getElementById('orbCanvas');
-        const ctx = canvas.getContext('2d');
-        const L_SCALE = 1024 / 320; // Ratio of Physical(1024) to Logical(320)
-
-        function draw() {
-            updatePhysics();
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // --- LAYER A: WHITE SHAPES ---
-            // We draw the eyes, mouth, and brows in pure white.
-            ctx.save();
-            // Transform: 1. Scale to physical -> 2. Center -> 3. Apply Visor Scale (0.85)
-            ctx.scale(L_SCALE, L_SCALE);
-            ctx.translate(CONFIG.centerX, CONFIG.centerY);
-            ctx.scale(CONFIG.scale, CONFIG.scale);
-            ctx.translate(-CONFIG.centerX, -CONFIG.centerY);
-
-            ctx.fillStyle = '#ffffff';
-            drawEyeContainer(CONFIG.centerX - CONFIG.eyeGap);
-            drawEyeContainer(CONFIG.centerX + CONFIG.eyeGap);
-            drawMouth();
-            drawBrows();
-            ctx.restore();
-
-            // --- LAYER B: GRID MASK (Source-In) ---
-            // Keeps grid pixels ONLY where white shapes exist
-            ctx.globalCompositeOperation = 'source-in';
-            ctx.drawImage(gridCanvas, 0, 0);
-
-            // --- LAYER C: PUPIL CUTOUT (Destination-Out) ---
-            // Removes pixels to create the hollow pupil effect
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.save();
-            ctx.scale(L_SCALE, L_SCALE);
-            ctx.translate(CONFIG.centerX, CONFIG.centerY);
-            ctx.scale(CONFIG.scale, CONFIG.scale);
-            ctx.translate(-CONFIG.centerX, -CONFIG.centerY);
-
-            drawPupil('left', -CONFIG.eyeGap);
-            drawPupil('right', CONFIG.eyeGap);
-            ctx.restore();
-
-            // Reset for next frame
-            ctx.globalCompositeOperation = 'source-over';
-            requestAnimationFrame(draw);
-        }
-
-        // --- 3. GEOMETRY DRAWING ---
-        function drawEyeContainer(x) {
-            ctx.beginPath();
-            ctx.ellipse(x, CONFIG.centerY, CONFIG.eyeW / 2, CONFIG.eyeH / 2, 0, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        function drawMouth() {
-            const s = state.smileFactor;
-            const mouthW = 42;
-            const mouthY = 187.6;
-            // Taper Logic: Thick center, 0px ends
-            const centerThickness = 12 + (Math.abs(s) * 10);
-            const curviness = s > 0 ? s * 25 : s * 35;
-            const cornerY = mouthY + (s < 0 ? -s * 16 : 0);
-
-            ctx.beginPath();
-            ctx.moveTo(CONFIG.centerX - mouthW, cornerY); // Left Corner
-            // Top Curve
-            ctx.quadraticCurveTo(CONFIG.centerX, mouthY + curviness - (centerThickness / 2), CONFIG.centerX + mouthW, cornerY);
-            // Bottom Curve
-            ctx.quadraticCurveTo(CONFIG.centerX, mouthY + curviness + (centerThickness / 2), CONFIG.centerX - mouthW, cornerY);
-            ctx.fill();
-        }
-
-        function drawBrows() {
-            const browY = CONFIG.centerY - 30;
-            const arch = state.smileFactor * -8; // Arch Up (-) or Down (+)
-
-            drawOneBrow(CONFIG.centerX - CONFIG.eyeGap, browY, arch);
-            drawOneBrow(CONFIG.centerX + CONFIG.eyeGap, browY, arch);
-        }
-
-        function drawOneBrow(cx, y, arch) {
-            const w = 16;
-            ctx.beginPath();
-            ctx.moveTo(cx - w, y);
-            ctx.quadraticCurveTo(cx, y + arch, cx + w, y); // Top
-            ctx.quadraticCurveTo(cx, y + arch + 6, cx - w, y); // Bottom (6px thick)
-            ctx.fill();
-        }
-
-        function drawPupil(side, xOffset) {
-            const p = state.pupils[side];
-            ctx.beginPath();
-            ctx.arc((CONFIG.centerX + xOffset) + p.x, CONFIG.centerY + p.y, CONFIG.pupilRadius, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // --- 4. PHYSICS & TRACKING ---
-        function updatePhysics() {
-            // 1. Smile Lerp
-            const targetSmile = state.mouse.active ? 1.0 : -0.5;
-            state.smileFactor += (targetSmile - state.smileFactor) * CONFIG.physics.blend;
-
-            // 2. Pupil Physics
-            updatePupilVec('left', -CONFIG.eyeGap);
-            updatePupilVec('right', CONFIG.eyeGap);
-        }
-
-        function updatePupilVec(side, xOffset) {
-            const pupil = state.pupils[side];
-            let targetX = 0, targetY = 0;
-
-            if (state.mouse.active) {
-                const eyeCX = CONFIG.centerX + xOffset;
-                let dx = state.mouse.x - eyeCX;
-                let dy = state.mouse.y - CONFIG.centerY;
-
-                // Convergence Zone (Cross-eyes when near center)
-                const distFromCenter = Math.abs(state.mouse.x - CONFIG.centerX);
-                // Zone width: 40px
-                if (distFromCenter < 40) {
-                    const strength = 1.0 - (distFromCenter / 40);
-                    const offset = 16 * strength; // Max 16px inward shift
-                    if (side === 'left') dx += offset;
-                    if (side === 'right') dx -= offset;
+            bodyGeo.computeVertexNormals();
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, bumpMap: createSnowTexture(), bumpScale: 0.12 });
+            group.add(new THREE.Mesh(bodyGeo, bodyMat));
+            // Horns
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a3c31, roughness: 1.0 });
+            const createTwig = (length, thickness, depth) => {
+                if (depth <= 0) return new THREE.Group();
+                const tGroup = new THREE.Group();
+                const geo = new THREE.CylinderGeometry(thickness * 0.7, thickness, length, 5);
+                geo.translate(0, length / 2, 0);
+                const mesh = new THREE.Mesh(geo, woodMat);
+                mesh.rotation.z = (Math.random() - 0.5) * 0.2; mesh.rotation.x = (Math.random() - 0.5) * 0.2;
+                tGroup.add(mesh);
+                if (depth > 1) {
+                    const num = 1 + Math.floor(Math.random() * 2);
+                    for (let i = 0; i < num; i++) {
+                        const s = createTwig(length * 0.6, thickness * 0.7, depth - 1);
+                        s.position.y = length * (0.4 + Math.random() * 0.5);
+                        s.rotation.z = (Math.random() - 0.5) * 1.5; s.rotation.y = (Math.random() - 0.5) * 2.0;
+                        tGroup.add(s);
+                    }
                 }
-
-                // Vector Clamp (Max Radius 11)
-                const angle = Math.atan2(dy, dx);
-                const dist = Math.min(Math.sqrt(dx * dx + dy * dy), 11);
-
-                targetX = Math.cos(angle) * dist;
-                targetY = Math.sin(angle) * dist;
+                return tGroup;
+            };
+            const h1 = createTwig(1.0, 0.08, 3); h1.position.set(-0.7, 1.1, 0); h1.rotation.z = 0.5; group.add(h1);
+            const h2 = createTwig(0.9, 0.09, 3); h2.position.set(0.7, 1.1, 0); h2.rotation.z = -0.5; group.add(h2);
+            // Eyes
+            const createButton = (c) => {
+                const b = new THREE.Group();
+                const mat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.4, metalness: 0.1 });
+                const rim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 16, 32), mat); rim.position.z = 0.03; b.add(rim);
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.05, 32), mat); base.rotation.x = Math.PI / 2; b.add(base);
+                const blk = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                for (let x = -1; x <= 1; x += 2) for (let y = -1; y <= 1; y += 2) {
+                    const h = new THREE.Mesh(new THREE.CircleGeometry(0.015, 8), blk); h.position.set(x * 0.04, y * 0.04, 0.055); b.add(h);
+                }
+                return b;
+            };
+            const eL = createButton(0x003366); eL.position.set(-0.4, 0.2, 1.65); eL.lookAt(0, 0, 5); group.add(eL);
+            const eR = createButton(0x006400); eR.position.set(0.4, 0.2, 1.65); eR.lookAt(0, 0, 5); group.add(eR);
+            // Nose
+            const cGeo = new THREE.ConeGeometry(0.12, 0.8, 16); cGeo.translate(0, 0.4, 0); cGeo.rotateX(Math.PI / 2);
+            const nose = new THREE.Mesh(cGeo, new THREE.MeshStandardMaterial({ color: 0xFF6600, roughness: 0.6 }));
+            nose.position.set(0, 0, 1.6); group.add(nose);
+            // Mouth
+            const sMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+            for (let i = 0; i < 6; i++) {
+                const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.04 + Math.random() * 0.04, 0), sMat);
+                const a = Math.PI + (i - 2.5) * 0.35;
+                s.position.set(Math.sin(a) * 0.6, -0.5 + Math.cos(a) * 0.25, 1.35);
+                s.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+                group.add(s);
             }
-
-            // Spring Physics
-            pupil.vx += (targetX - pupil.x) * CONFIG.physics.accel;
-            pupil.vy += (targetY - pupil.y) * CONFIG.physics.accel;
-            pupil.vx *= CONFIG.physics.drag;
-            pupil.vy *= CONFIG.physics.drag;
-            pupil.x += pupil.vx;
-            pupil.y += pupil.vy;
+            // Animation
+            let mX = 0, mY = 0;
+            document.addEventListener('mousemove', (e) => { mX = (e.clientX / window.innerWidth) * 2 - 1; mY = -(e.clientY / window.innerHeight) * 2 + 1; });
+            const animate = () => {
+                requestAnimationFrame(animate);
+                group.position.y = -0.4 + Math.sin(Date.now() * 0.0015) * 0.05;
+                group.rotation.y += (mX * 0.8 - group.rotation.y) * 0.1;
+                group.rotation.x += (-mY * 0.7 - group.rotation.x) * 0.1;
+                renderer.render(scene, camera);
+            };
+            animate();
         }
-
-        // --- 5. RESPONSIVE INPUT HANDLER ---
-        window.addEventListener('mousemove', (e) => {
-            state.mouse.active = true;
-
-            // Dynamic Scale Calculation
-            // We map the physical mouse coordinates to the logical 320x320 space
-            // accounting for the current size of the canvas (which shrinks/grows with the bot image)
-            const rect = canvas.getBoundingClientRect();
-
-            // Ratio: 320 logical units / Current Pixel Width
-            const scaleX = 320 / rect.width;
-            const scaleY = 320 / rect.height;
-
-            const rawX = (e.clientX - rect.left) * scaleX;
-            const rawY = (e.clientY - rect.top) * scaleY;
-
-            // Reverse the 'CONFIG.scale' (0.85) to find true logical target
-            state.mouse.x = (rawX - CONFIG.centerX) / CONFIG.scale + CONFIG.centerX;
-            state.mouse.y = (rawY - CONFIG.centerY) / CONFIG.scale + CONFIG.centerY;
-        });
-
-        window.addEventListener('mouseleave', () => {
-            state.mouse.active = false;
-        });
-
-        // START ENGINE
-        requestAnimationFrame(draw);
-
+        window.addEventListener('load', () => initSnowmanOrb('canvas-orb'));
     </script>
 </body>
 
