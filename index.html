@@ -1,0 +1,318 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socratic Orb: Dark Avenger (v125.3)</title>
+    <style>
+        body {
+            background-color: #0d0d0d;
+            /* Matches dark vignette of the image */
+            margin: 0;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* 1. THE CHASSIS CONTAINER 
+           Locks the aspect ratio to the image dimensions.
+           Ensures the 'canvas' coordinates are always relative to the bot, not the window.
+        */
+        #chassis {
+            position: relative;
+            /* The asset is square. We lock the container to 1:1 */
+            aspect-ratio: 1 / 1;
+
+            /* Responsive Sizing: 
+               Fills 95% of whichever is smaller (width or height).
+               This ensures the whole bot is always visible. */
+            width: min(95vw, 95vh);
+            height: min(95vw, 95vh);
+
+            /* The Robot Image */
+            background: url('Trim Bot Dark Avenger.jpg') no-repeat center center;
+            /* Fallback to GitHub if local file missing - Developer can switch this */
+            background-image: url('https://github.com/Dewsbex/socratic-orb/blob/main/Trim%20Bot%20Dark%20Avenger.jpg?raw=true');
+
+            background-size: contain;
+        }
+
+        /* 2. THE VISOR MAPPING (CALIBRATED TO JPG)
+           These % values map the canvas to the black circular glass.
+        */
+        canvas {
+            position: absolute;
+
+            /* Y-AXIS: Distance from top of the horns to start of glass */
+            top: 27%;
+
+            /* WIDTH: The diameter of the glass circle relative to full image width */
+            width: 41%;
+
+            /* X-AXIS: Center horizontally */
+            left: 50%;
+            transform: translateX(-50%);
+
+            /* Force square aspect ratio for the face logic */
+            aspect-ratio: 1 / 1;
+
+            /* Visual styles */
+            image-rendering: pixelated;
+            /* border: 1px solid rgba(0, 255, 255, 0.2); Un-comment to debug alignment */
+            border-radius: 50%;
+            /* Optional: Clips corners if they bleed out */
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="chassis">
+        <canvas id="orbCanvas" width="1024" height="1024"></canvas>
+    </div>
+
+    <script>
+        /**
+         * SOCRATIC ORB VFD - DARK AVENGER BUILD (v125.3)
+         * -------------------------------------------------
+         * SPECIFICATION:
+         * - Asset: Trim Bot Dark Avenger.jpg
+         * - Logic: 320x320 coord space mapped to 1024px physical grid.
+         * - Physics: "Antigravity" smooth lerp + convergence zone tracking.
+         */
+
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            centerX: 160,
+            centerY: 153.6,
+            scale: 0.85,    // Global scale to float face inside the aperture
+            eyeGap: 35,     // Distance from center to eye
+            eyeW: 32,
+            eyeH: 44,
+            pupilRadius: 11,
+            colors: { bg: '#000000', glow: '#00ffff', core: '#ffffff' },
+            physics: { accel: 0.2, drag: 0.7, blend: 0.12 }
+        };
+
+        // --- STATE ---
+        let state = {
+            mouse: { x: 0, y: 0, active: false },
+            smileFactor: -0.5, // Start with Idle Frown
+            pupils: {
+                left: { x: 0, y: 0, vx: 0, vy: 0 },
+                right: { x: 0, y: 0, vx: 0, vy: 0 }
+            }
+        };
+
+        // --- 1. INIT VFD TEXTURE (1024x1024) ---
+        // We pre-render the dots to improve performance
+        const gridCanvas = document.createElement('canvas');
+        gridCanvas.width = 1024;
+        gridCanvas.height = 1024;
+        const gridCtx = gridCanvas.getContext('2d');
+
+        function initGrid() {
+            // Black background
+            gridCtx.fillStyle = CONFIG.colors.bg;
+            gridCtx.fillRect(0, 0, 1024, 1024);
+
+            const dotSize = 1024 / 1000; // 1000 dots density
+            const radius = dotSize * 0.8;
+
+            for (let y = 0; y < 1024; y += dotSize * 1.2) {
+                for (let x = 0; x < 1024; x += dotSize * 1.2) {
+                    // 1. Cyan Glow (Outer)
+                    gridCtx.fillStyle = CONFIG.colors.glow;
+                    gridCtx.beginPath();
+                    gridCtx.arc(x, y, radius * 1.6, 0, Math.PI * 2);
+                    gridCtx.fill();
+                    // 2. White Core (Inner)
+                    gridCtx.fillStyle = CONFIG.colors.core;
+                    gridCtx.beginPath();
+                    gridCtx.arc(x, y, radius * 0.9, 0, Math.PI * 2);
+                    gridCtx.fill();
+                }
+            }
+        }
+        initGrid();
+
+        // --- 2. RENDER LOOP ---
+        const canvas = document.getElementById('orbCanvas');
+        const ctx = canvas.getContext('2d');
+        const L_SCALE = 1024 / 320; // Ratio of Physical(1024) to Logical(320)
+
+        function draw() {
+            updatePhysics();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // --- LAYER A: WHITE SHAPES ---
+            // We draw the eyes, mouth, and brows in pure white.
+            ctx.save();
+            // Transform: 1. Scale to physical -> 2. Center -> 3. Apply Visor Scale (0.85)
+            ctx.scale(L_SCALE, L_SCALE);
+            ctx.translate(CONFIG.centerX, CONFIG.centerY);
+            ctx.scale(CONFIG.scale, CONFIG.scale);
+            ctx.translate(-CONFIG.centerX, -CONFIG.centerY);
+
+            ctx.fillStyle = '#ffffff';
+            drawEyeContainer(CONFIG.centerX - CONFIG.eyeGap);
+            drawEyeContainer(CONFIG.centerX + CONFIG.eyeGap);
+            drawMouth();
+            drawBrows();
+            ctx.restore();
+
+            // --- LAYER B: GRID MASK (Source-In) ---
+            // Keeps grid pixels ONLY where white shapes exist
+            ctx.globalCompositeOperation = 'source-in';
+            ctx.drawImage(gridCanvas, 0, 0);
+
+            // --- LAYER C: PUPIL CUTOUT (Destination-Out) ---
+            // Removes pixels to create the hollow pupil effect
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.save();
+            ctx.scale(L_SCALE, L_SCALE);
+            ctx.translate(CONFIG.centerX, CONFIG.centerY);
+            ctx.scale(CONFIG.scale, CONFIG.scale);
+            ctx.translate(-CONFIG.centerX, -CONFIG.centerY);
+
+            drawPupil('left', -CONFIG.eyeGap);
+            drawPupil('right', CONFIG.eyeGap);
+            ctx.restore();
+
+            // Reset for next frame
+            ctx.globalCompositeOperation = 'source-over';
+            requestAnimationFrame(draw);
+        }
+
+        // --- 3. GEOMETRY DRAWING ---
+        function drawEyeContainer(x) {
+            ctx.beginPath();
+            ctx.ellipse(x, CONFIG.centerY, CONFIG.eyeW / 2, CONFIG.eyeH / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawMouth() {
+            const s = state.smileFactor;
+            const mouthW = 42;
+            const mouthY = 187.6;
+            // Taper Logic: Thick center, 0px ends
+            const centerThickness = 12 + (Math.abs(s) * 10);
+            const curviness = s > 0 ? s * 25 : s * 35;
+            const cornerY = mouthY + (s < 0 ? -s * 16 : 0);
+
+            ctx.beginPath();
+            ctx.moveTo(CONFIG.centerX - mouthW, cornerY); // Left Corner
+            // Top Curve
+            ctx.quadraticCurveTo(CONFIG.centerX, mouthY + curviness - (centerThickness / 2), CONFIG.centerX + mouthW, cornerY);
+            // Bottom Curve
+            ctx.quadraticCurveTo(CONFIG.centerX, mouthY + curviness + (centerThickness / 2), CONFIG.centerX - mouthW, cornerY);
+            ctx.fill();
+        }
+
+        function drawBrows() {
+            const browY = CONFIG.centerY - 30;
+            const arch = state.smileFactor * -8; // Arch Up (-) or Down (+)
+
+            drawOneBrow(CONFIG.centerX - CONFIG.eyeGap, browY, arch);
+            drawOneBrow(CONFIG.centerX + CONFIG.eyeGap, browY, arch);
+        }
+
+        function drawOneBrow(cx, y, arch) {
+            const w = 16;
+            ctx.beginPath();
+            ctx.moveTo(cx - w, y);
+            ctx.quadraticCurveTo(cx, y + arch, cx + w, y); // Top
+            ctx.quadraticCurveTo(cx, y + arch + 6, cx - w, y); // Bottom (6px thick)
+            ctx.fill();
+        }
+
+        function drawPupil(side, xOffset) {
+            const p = state.pupils[side];
+            ctx.beginPath();
+            ctx.arc((CONFIG.centerX + xOffset) + p.x, CONFIG.centerY + p.y, CONFIG.pupilRadius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // --- 4. PHYSICS & TRACKING ---
+        function updatePhysics() {
+            // 1. Smile Lerp
+            const targetSmile = state.mouse.active ? 1.0 : -0.5;
+            state.smileFactor += (targetSmile - state.smileFactor) * CONFIG.physics.blend;
+
+            // 2. Pupil Physics
+            updatePupilVec('left', -CONFIG.eyeGap);
+            updatePupilVec('right', CONFIG.eyeGap);
+        }
+
+        function updatePupilVec(side, xOffset) {
+            const pupil = state.pupils[side];
+            let targetX = 0, targetY = 0;
+
+            if (state.mouse.active) {
+                const eyeCX = CONFIG.centerX + xOffset;
+                let dx = state.mouse.x - eyeCX;
+                let dy = state.mouse.y - CONFIG.centerY;
+
+                // Convergence Zone (Cross-eyes when near center)
+                const distFromCenter = Math.abs(state.mouse.x - CONFIG.centerX);
+                // Zone width: 40px
+                if (distFromCenter < 40) {
+                    const strength = 1.0 - (distFromCenter / 40);
+                    const offset = 16 * strength; // Max 16px inward shift
+                    if (side === 'left') dx += offset;
+                    if (side === 'right') dx -= offset;
+                }
+
+                // Vector Clamp (Max Radius 11)
+                const angle = Math.atan2(dy, dx);
+                const dist = Math.min(Math.sqrt(dx * dx + dy * dy), 11);
+
+                targetX = Math.cos(angle) * dist;
+                targetY = Math.sin(angle) * dist;
+            }
+
+            // Spring Physics
+            pupil.vx += (targetX - pupil.x) * CONFIG.physics.accel;
+            pupil.vy += (targetY - pupil.y) * CONFIG.physics.accel;
+            pupil.vx *= CONFIG.physics.drag;
+            pupil.vy *= CONFIG.physics.drag;
+            pupil.x += pupil.vx;
+            pupil.y += pupil.vy;
+        }
+
+        // --- 5. RESPONSIVE INPUT HANDLER ---
+        window.addEventListener('mousemove', (e) => {
+            state.mouse.active = true;
+
+            // Dynamic Scale Calculation
+            // We map the physical mouse coordinates to the logical 320x320 space
+            // accounting for the current size of the canvas (which shrinks/grows with the bot image)
+            const rect = canvas.getBoundingClientRect();
+
+            // Ratio: 320 logical units / Current Pixel Width
+            const scaleX = 320 / rect.width;
+            const scaleY = 320 / rect.height;
+
+            const rawX = (e.clientX - rect.left) * scaleX;
+            const rawY = (e.clientY - rect.top) * scaleY;
+
+            // Reverse the 'CONFIG.scale' (0.85) to find true logical target
+            state.mouse.x = (rawX - CONFIG.centerX) / CONFIG.scale + CONFIG.centerX;
+            state.mouse.y = (rawY - CONFIG.centerY) / CONFIG.scale + CONFIG.centerY;
+        });
+
+        window.addEventListener('mouseleave', () => {
+            state.mouse.active = false;
+        });
+
+        // START ENGINE
+        requestAnimationFrame(draw);
+
+    </script>
+</body>
+
+</html>
