@@ -76,8 +76,8 @@ def run_etl_job():
         etl_status["last_run"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
 def scheduler_loop():
-    # Run every 6 hours
-    schedule.every(6).hours.do(run_etl_job)
+    # Run once a day at 08:30 AM
+    schedule.every().day.at("08:30").do(run_etl_job)
     
     # Also run once heavily at startup? Or wait for manual trigger?
     # schedule.run_all()

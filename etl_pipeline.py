@@ -49,11 +49,13 @@ def extract_emails(service, query="label:inbox -category:promotions -category:so
     
     keywords = ["Trip", "Assembly", "Birthday", "Party", "Costume", "Bring", "Year 3", "Reception"]
     keyword_query = " OR ".join([f'"{k}"' for k in keywords])
-    full_query = f"{query} ({keyword_query})"
+    
+    # Filter for emails from the last 24 hours (newer_than:1d)
+    full_query = f"{query} {keyword_query} newer_than:1d"
     
     # We only want *new* emails usually, but for this demo/MVP we might scan recent X
-    # In a real poller, we'd store specific history ID. For now, let's grab last 10 relevant messages.
-    results = service.users().messages().list(userId='me', q=full_query, maxResults=5).execute()
+    # In a real poller, we'd store specific history ID. For now, let's grab last 20 relevant messages.
+    results = service.users().messages().list(userId='me', q=full_query, maxResults=20).execute()
     messages = results.get('messages', [])
     
     email_data_list = []
