@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+app.config['PROPAGATE_EXCEPTIONS'] = True
+app.config['TRAP_HTTP_EXCEPTIONS'] = True
 
 # ETL Status Global State
 etl_status = {
