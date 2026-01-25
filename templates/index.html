@@ -4,280 +4,313 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social ETL | Family Log-Parser</title>
+    <title>Socratic Orb: Dark Avenger (v125.3)</title>
     <style>
-        :root {
-            --neon-green: #39ff14;
-            --dim-gray: #333;
-            --alert-red: #ff3333;
-            --cork-bg: #e0d5c1;
-            /* Fallback */
-        }
-
         body {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: #1a1a1a;
-            color: var(--neon-green);
+            background-color: #0d0d0d;
+            /* Matches dark vignette of the image */
             margin: 0;
+            height: 100vh;
+            width: 100vw;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
             overflow: hidden;
         }
 
-        /* Dashboard Card - Corkboard Metaphor */
-        .dashboard-card {
-            background: var(--cork-bg);
-            /* Add texture URL if available, purely CSS for now */
-            background-image: radial-gradient(#d0c5b1 15%, transparent 16%), radial-gradient(#d0c5b1 15%, transparent 16%);
-            background-size: 60px 60px;
-            background-position: 0 0, 30px 30px;
-
-            border: 8px solid #5d4037;
-            padding: 20px;
-            width: 300px;
-            height: 200px;
-            box-shadow: 10px 10px 20px rgba(0, 0, 0, 0.5);
+        /* 1. THE CHASSIS CONTAINER 
+           Locks the aspect ratio to the image dimensions.
+           Ensures the 'canvas' coordinates are always relative to the bot, not the window.
+        */
+        #chassis {
             position: relative;
-            transform: rotate(-2deg);
-            transition: transform 0.3s ease;
-            cursor: pointer;
-            z-index: 10;
+            /* The asset is square. We lock the container to 1:1 */
+            aspect-ratio: 1 / 1;
+
+            /* Responsive Sizing: 
+               Fills 95% of whichever is smaller (width or height).
+               This ensures the whole bot is always visible. */
+            width: min(95vw, 95vh);
+            height: min(95vw, 95vh);
+
+            /* The Robot Image */
+            background: url('Trim Bot Dark Avenger.jpg') no-repeat center center;
+            /* Fallback to GitHub if local file missing - Developer can switch this */
+            background-image: url('https://github.com/Dewsbex/socratic-orb/blob/main/Trim%20Bot%20Dark%20Avenger.jpg?raw=true');
+
+            background-size: contain;
         }
 
-        .dashboard-card:hover {
-            transform: rotate(0deg) scale(1.05);
-        }
-
-        .pin {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: var(--alert-red);
+        /* 2. THE VISOR MAPPING (CALIBRATED TO JPG)
+           These % values map the canvas to the black circular glass.
+        */
+        canvas {
             position: absolute;
-            top: 10px;
+
+            /* Y-AXIS: Distance from top of the horns to start of glass */
+            top: 27%;
+
+            /* WIDTH: The diameter of the glass circle relative to full image width */
+            width: 41%;
+
+            /* X-AXIS: Center horizontally */
             left: 50%;
             transform: translateX(-50%);
-            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
-        }
 
-        .card-content {
-            background: white;
-            padding: 15px;
-            height: 100%;
-            box-sizing: border-box;
-            color: black;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
+            /* Force square aspect ratio for the face logic */
+            aspect-ratio: 1 / 1;
 
-        .card-title {
-            font-weight: bold;
-            font-size: 1.2rem;
-            text-transform: uppercase;
-            border-bottom: 2px solid black;
-            padding-bottom: 5px;
-        }
-
-        .status-text {
-            font-weight: bold;
-            color: #555;
-        }
-
-        .status-animate {
-            animation: blink 1.5s infinite;
-        }
-
-        @keyframes blink {
-            50% {
-                opacity: 0.3;
-            }
-        }
-
-        /* Terminal Interface (Hidden by default) */
-        .terminal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: none;
-            /* Flex when active */
-            flex-direction: column;
-            padding: 20px;
-            box-sizing: border-box;
-            z-index: 100;
-        }
-
-        .terminal-header {
-            border-bottom: 1px solid var(--neon-green);
-            background: var(--dim-gray);
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .terminal-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            flex-grow: 1;
-            padding-top: 20px;
-            height: 80vh;
-        }
-
-        .col {
-            border: 1px solid var(--dim-gray);
-            padding: 10px;
-            background: #000;
-            overflow-y: auto;
-            font-size: 0.9rem;
-        }
-
-        .col-title {
-            color: #fff;
-            background: var(--dim-gray);
-            padding: 5px;
-            margin: -10px -10px 10px -10px;
-            text-align: center;
-            font-weight: bold;
-        }
-
-        .log-entry {
-            margin-bottom: 5px;
-            border-bottom: 1px dotted #333;
-            padding-bottom: 2px;
-        }
-
-        .highlight-green {
-            color: var(--neon-green);
-        }
-
-        .highlight-red {
-            color: var(--alert-red);
-        }
-
-        .json-block {
-            color: #aaa;
-        }
-
-        .close-btn {
-            background: var(--alert-red);
-            color: white;
-            border: none;
-            padding: 5px 15px;
-            cursor: pointer;
-            font-family: inherit;
-            font-weight: bold;
-        }
-
-        /* Terminal Typewriter Effect */
-        .cursor::after {
-            content: '█';
-            animation: blink-cursor 1s infinite;
-        }
-
-        @keyframes blink-cursor {
-            50% {
-                opacity: 0;
-            }
+            /* Visual styles */
+            image-rendering: pixelated;
+            /* border: 1px solid rgba(0, 255, 255, 0.2); Un-comment to debug alignment */
+            border-radius: 50%;
+            /* Optional: Clips corners if they bleed out */
         }
     </style>
 </head>
 
 <body>
 
-    <!-- Dashboard Card -->
-    <div class="dashboard-card" onclick="openTerminal()">
-        <div class="pin"></div>
-        <div class="card-content">
-            <div class="card-title">Social ETL</div>
-            <div style="font-size: 0.9rem;">
-                <p><strong>Subjects:</strong> Benjamin, Tristan</p>
-                <p><strong>Next Run:</strong> <span id="next-run">14:00</span></p>
-            </div>
-            <div class="status-text status-animate" id="dashboard-status">PARSING...</div>
-        </div>
-    </div>
-
-    <!-- Terminal Overlay -->
-    <div class="terminal-overlay" id="terminal">
-        <div class="terminal-header">
-            <span>> SOCIAL_ETL_DAEMON_V1.0.exe</span>
-            <button class="close-btn" onclick="closeTerminal()">[X] CLOSE_CONNECTION</button>
-        </div>
-
-        <div class="terminal-grid">
-            <!-- Left Column: Raw Logs -->
-            <div class="col" id="raw-log">
-                <div class="col-title">RAW_PACKET_STREAM</div>
-                <!-- JS will inject logs here -->
-                <div class="log-entry">> CONNECTION ESTABLISHED...</div>
-                <div class="log-entry">> LISTENING ON PORT 587...</div>
-            </div>
-
-            <!-- Right Column: Structured Data -->
-            <div class="col" id="structured-data">
-                <div class="col-title">STRUCTURED_OBJECT_BUFFER</div>
-                <!-- JS will inject JSON here -->
-                <div class="log-entry" style="color: #666;">[WAITING FOR PAYLOAD]</div>
-            </div>
-        </div>
-
-        <div style="border-top: 1px solid var(--neon-green); padding: 10px; margin-top: 10px;">
-            > SYSTEM_STATUS: <span class="highlight-green">ONLINE</span> <span class="cursor"></span>
-            <button onclick="triggerETL()"
-                style="float: right; background: transparent; border: 1px solid var(--neon-green); color: var(--neon-green); cursor: pointer;">[FORCE_RUN]</button>
-        </div>
+    <div id="chassis">
+        <canvas id="orbCanvas" width="1024" height="1024"></canvas>
     </div>
 
     <script>
-        function openTerminal() {
-            document.getElementById('terminal').style.display = 'flex';
-            fetchLogs();
+        /**
+         * SOCRATIC ORB VFD - DARK AVENGER BUILD (v125.3)
+         * -------------------------------------------------
+         * SPECIFICATION:
+         * - Asset: Trim Bot Dark Avenger.jpg
+         * - Logic: 320x320 coord space mapped to 1024px physical grid.
+         * - Physics: "Antigravity" smooth lerp + convergence zone tracking.
+         */
+
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            centerX: 160,
+            centerY: 153.6,
+            scale: 0.85,    // Global scale to float face inside the aperture
+            eyeGap: 35,     // Distance from center to eye
+            eyeW: 32,
+            eyeH: 44,
+            pupilRadius: 11,
+            colors: { bg: '#000000', glow: '#00ffff', core: '#ffffff' },
+            physics: { accel: 0.2, drag: 0.7, blend: 0.12 }
+        };
+
+        // --- STATE ---
+        let state = {
+            mouse: { x: 0, y: 0, active: false },
+            smileFactor: -0.5, // Start with Idle Frown
+            pupils: {
+                left: { x: 0, y: 0, vx: 0, vy: 0 },
+                right: { x: 0, y: 0, vx: 0, vy: 0 }
+            }
+        };
+
+        // --- 1. INIT VFD TEXTURE (1024x1024) ---
+        // We pre-render the dots to improve performance
+        const gridCanvas = document.createElement('canvas');
+        gridCanvas.width = 1024;
+        gridCanvas.height = 1024;
+        const gridCtx = gridCanvas.getContext('2d');
+
+        function initGrid() {
+            // Black background
+            gridCtx.fillStyle = CONFIG.colors.bg;
+            gridCtx.fillRect(0, 0, 1024, 1024);
+
+            const dotSize = 1024 / 1000; // 1000 dots density
+            const radius = dotSize * 0.8;
+
+            for (let y = 0; y < 1024; y += dotSize * 1.2) {
+                for (let x = 0; x < 1024; x += dotSize * 1.2) {
+                    // 1. Cyan Glow (Outer)
+                    gridCtx.fillStyle = CONFIG.colors.glow;
+                    gridCtx.beginPath();
+                    gridCtx.arc(x, y, radius * 1.6, 0, Math.PI * 2);
+                    gridCtx.fill();
+                    // 2. White Core (Inner)
+                    gridCtx.fillStyle = CONFIG.colors.core;
+                    gridCtx.beginPath();
+                    gridCtx.arc(x, y, radius * 0.9, 0, Math.PI * 2);
+                    gridCtx.fill();
+                }
+            }
+        }
+        initGrid();
+
+        // --- 2. RENDER LOOP ---
+        const canvas = document.getElementById('orbCanvas');
+        const ctx = canvas.getContext('2d');
+        const L_SCALE = 1024 / 320; // Ratio of Physical(1024) to Logical(320)
+
+        function draw() {
+            updatePhysics();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // --- LAYER A: WHITE SHAPES ---
+            // We draw the eyes, mouth, and brows in pure white.
+            ctx.save();
+            // Transform: 1. Scale to physical -> 2. Center -> 3. Apply Visor Scale (0.85)
+            ctx.scale(L_SCALE, L_SCALE);
+            ctx.translate(CONFIG.centerX, CONFIG.centerY);
+            ctx.scale(CONFIG.scale, CONFIG.scale);
+            ctx.translate(-CONFIG.centerX, -CONFIG.centerY);
+
+            ctx.fillStyle = '#ffffff';
+            drawEyeContainer(CONFIG.centerX - CONFIG.eyeGap);
+            drawEyeContainer(CONFIG.centerX + CONFIG.eyeGap);
+            drawMouth();
+            drawBrows();
+            ctx.restore();
+
+            // --- LAYER B: GRID MASK (Source-In) ---
+            // Keeps grid pixels ONLY where white shapes exist
+            ctx.globalCompositeOperation = 'source-in';
+            ctx.drawImage(gridCanvas, 0, 0);
+
+            // --- LAYER C: PUPIL CUTOUT (Destination-Out) ---
+            // Removes pixels to create the hollow pupil effect
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.save();
+            ctx.scale(L_SCALE, L_SCALE);
+            ctx.translate(CONFIG.centerX, CONFIG.centerY);
+            ctx.scale(CONFIG.scale, CONFIG.scale);
+            ctx.translate(-CONFIG.centerX, -CONFIG.centerY);
+
+            drawPupil('left', -CONFIG.eyeGap);
+            drawPupil('right', CONFIG.eyeGap);
+            ctx.restore();
+
+            // Reset for next frame
+            ctx.globalCompositeOperation = 'source-over';
+            requestAnimationFrame(draw);
         }
 
-        function closeTerminal() {
-            document.getElementById('terminal').style.display = 'none';
+        // --- 3. GEOMETRY DRAWING ---
+        function drawEyeContainer(x) {
+            ctx.beginPath();
+            ctx.ellipse(x, CONFIG.centerY, CONFIG.eyeW / 2, CONFIG.eyeH / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
         }
 
-        function triggerETL() {
-            fetch('/api/trigger', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    alert(data.message);
-                });
+        function drawMouth() {
+            const s = state.smileFactor;
+            const mouthW = 42;
+            const mouthY = 187.6;
+            // Taper Logic: Thick center, 0px ends
+            const centerThickness = 12 + (Math.abs(s) * 10);
+            const curviness = s > 0 ? s * 25 : s * 35;
+            const cornerY = mouthY + (s < 0 ? -s * 16 : 0);
+
+            ctx.beginPath();
+            ctx.moveTo(CONFIG.centerX - mouthW, cornerY); // Left Corner
+            // Top Curve
+            ctx.quadraticCurveTo(CONFIG.centerX, mouthY + curviness - (centerThickness / 2), CONFIG.centerX + mouthW, cornerY);
+            // Bottom Curve
+            ctx.quadraticCurveTo(CONFIG.centerX, mouthY + curviness + (centerThickness / 2), CONFIG.centerX - mouthW, cornerY);
+            ctx.fill();
         }
 
-        function fetchLogs() {
-            // Poll for logs if terminal is open
-            if (document.getElementById('terminal').style.display === 'none') return;
+        function drawBrows() {
+            const browY = CONFIG.centerY - 30;
+            const arch = state.smileFactor * -8; // Arch Up (-) or Down (+)
 
-            fetch('/api/status')
-                .then(r => r.json())
-                .then(data => {
-                    const logContainer = document.getElementById('raw-log');
-                    // Clear and rebuild for simple sync (optimize later)
-                    logContainer.innerHTML = '<div class="col-title">RAW_PACKET_STREAM</div>';
-
-                    data.logs.forEach(log => {
-                        const div = document.createElement('div');
-                        div.className = 'log-entry';
-                        div.innerText = "> " + log;
-                        logContainer.appendChild(div);
-                    });
-
-                    // Update Dashboard Status
-                    document.getElementById('dashboard-status').innerText = data.status;
-                });
-
-            setTimeout(fetchLogs, 2000);
+            drawOneBrow(CONFIG.centerX - CONFIG.eyeGap, browY, arch);
+            drawOneBrow(CONFIG.centerX + CONFIG.eyeGap, browY, arch);
         }
+
+        function drawOneBrow(cx, y, arch) {
+            const w = 16;
+            ctx.beginPath();
+            ctx.moveTo(cx - w, y);
+            ctx.quadraticCurveTo(cx, y + arch, cx + w, y); // Top
+            ctx.quadraticCurveTo(cx, y + arch + 6, cx - w, y); // Bottom (6px thick)
+            ctx.fill();
+        }
+
+        function drawPupil(side, xOffset) {
+            const p = state.pupils[side];
+            ctx.beginPath();
+            ctx.arc((CONFIG.centerX + xOffset) + p.x, CONFIG.centerY + p.y, CONFIG.pupilRadius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // --- 4. PHYSICS & TRACKING ---
+        function updatePhysics() {
+            // 1. Smile Lerp
+            const targetSmile = state.mouse.active ? 1.0 : -0.5;
+            state.smileFactor += (targetSmile - state.smileFactor) * CONFIG.physics.blend;
+
+            // 2. Pupil Physics
+            updatePupilVec('left', -CONFIG.eyeGap);
+            updatePupilVec('right', CONFIG.eyeGap);
+        }
+
+        function updatePupilVec(side, xOffset) {
+            const pupil = state.pupils[side];
+            let targetX = 0, targetY = 0;
+
+            if (state.mouse.active) {
+                const eyeCX = CONFIG.centerX + xOffset;
+                let dx = state.mouse.x - eyeCX;
+                let dy = state.mouse.y - CONFIG.centerY;
+
+                // Convergence Zone (Cross-eyes when near center)
+                const distFromCenter = Math.abs(state.mouse.x - CONFIG.centerX);
+                // Zone width: 40px
+                if (distFromCenter < 40) {
+                    const strength = 1.0 - (distFromCenter / 40);
+                    const offset = 16 * strength; // Max 16px inward shift
+                    if (side === 'left') dx += offset;
+                    if (side === 'right') dx -= offset;
+                }
+
+                // Vector Clamp (Max Radius 11)
+                const angle = Math.atan2(dy, dx);
+                const dist = Math.min(Math.sqrt(dx * dx + dy * dy), 11);
+
+                targetX = Math.cos(angle) * dist;
+                targetY = Math.sin(angle) * dist;
+            }
+
+            // Spring Physics
+            pupil.vx += (targetX - pupil.x) * CONFIG.physics.accel;
+            pupil.vy += (targetY - pupil.y) * CONFIG.physics.accel;
+            pupil.vx *= CONFIG.physics.drag;
+            pupil.vy *= CONFIG.physics.drag;
+            pupil.x += pupil.vx;
+            pupil.y += pupil.vy;
+        }
+
+        // --- 5. RESPONSIVE INPUT HANDLER ---
+        window.addEventListener('mousemove', (e) => {
+            state.mouse.active = true;
+
+            // Dynamic Scale Calculation
+            // We map the physical mouse coordinates to the logical 320x320 space
+            // accounting for the current size of the canvas (which shrinks/grows with the bot image)
+            const rect = canvas.getBoundingClientRect();
+
+            // Ratio: 320 logical units / Current Pixel Width
+            const scaleX = 320 / rect.width;
+            const scaleY = 320 / rect.height;
+
+            const rawX = (e.clientX - rect.left) * scaleX;
+            const rawY = (e.clientY - rect.top) * scaleY;
+
+            // Reverse the 'CONFIG.scale' (0.85) to find true logical target
+            state.mouse.x = (rawX - CONFIG.centerX) / CONFIG.scale + CONFIG.centerX;
+            state.mouse.y = (rawY - CONFIG.centerY) / CONFIG.scale + CONFIG.centerY;
+        });
+
+        window.addEventListener('mouseleave', () => {
+            state.mouse.active = false;
+        });
+
+        // START ENGINE
+        requestAnimationFrame(draw);
 
     </script>
 </body>
