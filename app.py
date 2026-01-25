@@ -86,7 +86,11 @@ def scheduler_loop():
 
 @app.route('/')
 def index():
-    return render_template('index.html') # We will need to put index.html in templates/ or configure static folder
+    return render_template('index.html') 
+
+@app.route('/debug')
+def debug():
+    return render_template('debug.html')
 
 @app.route('/api/status')
 def get_status():

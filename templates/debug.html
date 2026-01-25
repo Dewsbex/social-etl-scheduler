@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>DEBUG MODE</title>
+    <style>
+        body {
+            background: #000;
+            color: #0f0;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #canvas {
+            border: 1px solid #333;
+        }
+
+        #log {
+            margin-top: 20px;
+            text-align: left;
+            width: 80%;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #111;
+            padding: 10px;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>DEBUG RENDERER</h1>
+    <canvas id="canvas" width="320" height="320"></canvas>
+    <div id="log">Logs:<br></div>
+
+    <script>
+        const log = (msg) => {
+            const el = document.getElementById('log');
+            el.innerHTML += `> ${msg}<br>`;
+            console.log(msg);
+        };
+
+        window.onerror = (msg, url, line) => {
+            log(`CRITICAL ERROR: ${msg} at line ${line}`);
+            return false;
+        };
+
+        try {
+            log("Starting Debug...");
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Grid Test
+            const grid = document.createElement('canvas');
+            grid.width = 128; grid.height = 128;
+            const gCtx = grid.getContext('2d');
+            gCtx.fillStyle = 'red';
+            gCtx.fillRect(0, 0, 64, 64);
+            log("Grid Instantiated");
+
+            // Loop Test
+            let frame = 0;
+            const animate = () => {
+                frame++;
+                ctx.clearRect(0, 0, 320, 320);
+
+                // Draw something simple
+                ctx.fillStyle = 'cyan';
+                ctx.beginPath();
+                ctx.arc(160 + Math.sin(frame / 20) * 50, 160, 20, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (frame % 60 === 0) log(`Frame ${frame} rendered`);
+                requestAnimationFrame(animate);
+            };
+            requestAnimationFrame(animate);
+            log("Loop Started");
+        } catch (e) {
+            log(`EXCEPTION: ${e.message}`);
+        }
+    </script>
+</body>
+
+</html>
