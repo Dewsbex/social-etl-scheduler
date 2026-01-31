@@ -20,6 +20,9 @@ SCOPES = [
     'https://www.googleapis.com/auth/calendar.events'
 ]
 
+# Configuration
+CALENDAR_ID = os.getenv('GOOGLE_CALENDAR_ID', '9k5kqvc6322s3ro121soijjc6g@group.calendar.google.com')
+
 def get_credentials():
     """Gets valid user credentials from storage or initiates OAuth flow."""
     creds = None
@@ -55,7 +58,8 @@ def extract_emails(service, query="label:inbox -category:promotions -category:so
     keyword_query = " OR ".join([f'"{k}"' for k in keywords])
     
     # Filter for emails from the last 24 hours (newer_than:1d)
-    full_query = f"{query} {keyword_query} newer_than:1d"
+    # Target specific school sender OR keywords
+    full_query = f"{query} (from:noreply@weduc.co.uk OR {keyword_query}) newer_than:1d"
     
     # We only want *new* emails usually, but for this demo/MVP we might scan recent X
     # In a real poller, we'd store specific history ID. For now, let's grab last 20 relevant messages.
@@ -152,7 +156,7 @@ def check_calendar_conflicts(service, start_time, end_time):
     """
     try:
         events_result = service.events().list(
-            calendarId='primary', 
+            calendarId=CALENDAR_ID, 
             timeMin=start_time, 
             timeMax=end_time,
             singleEvents=True,
@@ -200,6 +204,7 @@ def load_to_calendar(service, event_json, dry_run=False, approval_mode=False):
         conflict_msg = f"\n\nCONFLICTS DETECTED: {', '.join(conflicts)}"
         description += conflict_msg
         final_title = "⚠️ CONFLICT: " + final_title
+        # color_id = "11" # Optional: Make red on conflict
 
     event = {
         'summary': final_title,
@@ -232,7 +237,7 @@ def load_to_calendar(service, event_json, dry_run=False, approval_mode=False):
         return f"[DRY RUN] Would create: {final_title} at {start_time}", None
         
     try:
-        event_result = service.events().insert(calendarId='primary', body=event).execute()
+        event_result = service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
         return f"Event created: {event_result.get('htmlLink')}", None
     except Exception as e:
         return f"Calendar Insert Failed: {e}", None

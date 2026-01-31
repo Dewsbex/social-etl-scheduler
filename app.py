@@ -7,7 +7,7 @@ import uuid
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
-from etl_pipeline import load_to_calendar, get_credentials
+from etl_pipeline import load_to_calendar, get_credentials, CALENDAR_ID
 
 # Load environment variables
 load_dotenv()
@@ -148,7 +148,7 @@ def approve_event():
         # Clean metadata
         body = {k:v for k,v in event_to_approve.items() if k not in ['id', 'source', '_discovered_at', 'status_tag']}
         
-        result = calendar_service.events().insert(calendarId='primary', body=body).execute()
+        result = calendar_service.events().insert(calendarId=CALENDAR_ID, body=body).execute()
         
         log_message(f"APPROVED & CREATED: {result.get('htmlLink')}")
         
