@@ -64,6 +64,90 @@
             /* border: 1px solid rgba(0, 255, 255, 0.2); Un-comment to debug alignment */
             border-radius: 50%;
             /* Optional: Clips corners if they bleed out */
+            /* Optional: Clips corners if they bleed out */
+        }
+        
+        /* 3. LOGISTICS TERMINAL OVERLAY */
+        #logistics-terminal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vw;
+            height: 70vh;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
+            color: #00ffff;
+            font-family: 'Courier New', Courier, monospace;
+            z-index: 1000;
+            display: none; /* Hidden by default, toggled via hotkey or auto */
+            flex-direction: column;
+            padding: 20px;
+            overflow: hidden;
+        }
+        
+        #terminal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .event-card {
+            background: rgba(0, 255, 255, 0.05);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .event-info {
+             font-size: 0.9rem;
+        }
+        
+        .event-actions button {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid lime;
+            color: lime;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-left: 5px;
+            font-family: inherit;
+        }
+        
+        .event-actions button.reject {
+            border-color: red;
+            color: red;
+        }
+        
+        .event-actions button:hover {
+            background: rgba(0, 255, 255, 0.1);
+        }
+
+        #terminal-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+        }
+        
+        .hud-btn {
+             background: rgba(0,0,0,0.5);
+             border: 1px solid #00ffff;
+             color: #00ffff;
+             padding: 8px 16px;
+             cursor: pointer;
+             font-family: 'Courier New';
+             backdrop-filter: blur(4px);
         }
     </style>
 </head>
@@ -72,6 +156,22 @@
 
     <div id="chassis">
         <canvas id="orbCanvas" width="1024" height="1024"></canvas>
+    </div>
+
+    <div id="terminal-controls">
+         <button class="hud-btn" onclick="toggleTerminal()">LOGISTICS TERMINAL</button>
+         <button class="hud-btn" onclick="triggerScan()">TRIGGER SCAN</button>
+    </div>
+
+    <div id="logistics-terminal">
+        <div id="terminal-header">
+            <span>> LOGISTICS OFFICER // PENDING APPROVALS</span>
+            <span id="close-btn" style="cursor:pointer" onclick="toggleTerminal()">[X]</span>
+        </div>
+        <div id="event-list" style="overflow-y: auto; flex-grow: 1;">
+            <!-- Events injected here -->
+            <div style="text-align:center; margin-top: 20px; color: #555;">NO PENDING EVENTS</div>
+        </div>
     </div>
 
     <script>
@@ -307,6 +407,91 @@
         window.addEventListener('mouseleave', () => {
             state.mouse.active = false;
         });
+
+        // --- 6. LOGISTICS UI LOGIC ---
+        const terminal = document.getElementById('logistics-terminal');
+        const eventList = document.getElementById('event-list');
+
+        function toggleTerminal() {
+            if (terminal.style.display === 'flex') {
+                terminal.style.display = 'none';
+            } else {
+                terminal.style.display = 'flex';
+                fetchPendingEvents();
+            }
+        }
+        
+        function triggerScan() {
+             fetch('/api/trigger', { method: 'POST' })
+             .then(r => r.json())
+             .then(data => alert(data.message))
+             .catch(e => alert("Trigger Failed"));
+        }
+
+        function fetchPendingEvents() {
+            fetch('/api/events/pending')
+                .then(res => res.json())
+                .then(events => {
+                    renderEvents(events);
+                })
+                .catch(err => console.error("Poll failed", err));
+        }
+
+        function renderEvents(events) {
+            eventList.innerHTML = '';
+            if (events.length === 0) {
+                eventList.innerHTML = '<div style="text-align:center; margin-top: 20px; color: #555;">NO PENDING EVENTS</div>';
+                return;
+            }
+
+            events.forEach(evt => {
+                const card = document.createElement('div');
+                card.className = 'event-card';
+                card.innerHTML = `
+                    <div class="event-info">
+                        <strong>${evt.summary}</strong><br>
+                        <span style="color: #aaa;">${evt.start.dateTime}</span><br>
+                        <small>Loc: ${evt.location || 'N/A'}</small>
+                    </div>
+                    <div class="event-actions">
+                        <button onclick="approveEvent('${evt.id}')">APPROVE</button>
+                        <button class="reject" onclick="rejectEvent('${evt.id}')">REJECT</button>
+                    </div>
+                `;
+                eventList.appendChild(card);
+            });
+        }
+
+        function approveEvent(id) {
+            fetch('/api/events/approve', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log(data);
+                fetchPendingEvents(); // Refresh
+            });
+        }
+
+        function rejectEvent(id) {
+            fetch('/api/events/reject', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log(data);
+                fetchPendingEvents(); // Refresh
+            });
+        }
+        
+        // Auto-refresh if open
+        setInterval(() => {
+            if(terminal.style.display === 'flex') fetchPendingEvents();
+        }, 5000);
 
         // START ENGINE
         requestAnimationFrame(draw);

@@ -7,3 +7,6 @@ flask
 schedule
 python-dotenv
 gunicorn
+browser-use
+langchain-google-genai
+playwright

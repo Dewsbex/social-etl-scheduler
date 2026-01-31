@@ -1,0 +1,6 @@
+{
+  "skill_id": "family-logistics-agent",
+  "instructions": "1. Monitor Gmail for keywords: 'Football', 'Rugby', 'Practice', 'Term Dates', 'Party Invite'. 2. Use 'browser-use' to log into [School Portal URL]. 3. Use Gemini Pro to extract (Event Name, Date, Start Time, Location). 4. Cross-reference with current Google Calendar to avoid duplicates. 5. Create a draft event and wait for my approval.",
+  "triggers": ["gmail_new_message", "weekly_scheduled"],
+  "environment": "ARM64_NATIVE"
+}

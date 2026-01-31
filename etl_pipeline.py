@@ -9,6 +9,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 import google.generativeai as genai
 from heuristics import identify_child, check_gift_heuristic, check_costume_heuristic
+from portal_scanner import scan_school_portal
+import asyncio
+from datetime import datetime
+
 
 # Scopes required for the application
 SCOPES = [
@@ -141,23 +145,35 @@ def transform_email_content(email_data):
         print(f"Transformation failed: {e}")
         return None
 
-def load_to_calendar(service, event_json, dry_run=False):
+def check_calendar_conflicts(service, start_time, end_time):
+    """
+    Checks for existing events in the given time range.
+    Returns list of conflicting event summaries.
+    """
+    try:
+        events_result = service.events().list(
+            calendarId='primary', 
+            timeMin=start_time, 
+            timeMax=end_time,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        events = events_result.get('items', [])
+        return [e['summary'] for e in events]
+    except Exception as e:
+        print(f"Conflict check failed: {e}")
+        return []
+
+def load_to_calendar(service, event_json, dry_run=False, approval_mode=False):
     """
     Phase 3: LOAD
     """
     if not event_json: 
-        return "No detected event data."
+        return "No detected event data.", None
         
     # Apply Python Heuristics (Post-LLM refinement)
-    # Rule 1: "Who" - The LLM does this, but we can double check or augment via title
-    # (LLM returns 'subjects', we can tag them in title)
-    
     subjects = event_json.get("subjects", [])
-    # Fallback if LLM missed it but heuristic finds it
     if not subjects:
-        # We assume the body content passed to heuristic is separate, 
-        # but here we only have JSON. 
-        # Let's rely on what we have.
         title_tag = ""
     else:
         title_tag = f"[{', '.join(subjects)}]"
@@ -171,38 +187,55 @@ def load_to_calendar(service, event_json, dry_run=False):
         
     # Rule 3: Costume Protocol
     color_id = "1" # Lavender default
-    # If we had the original text here we could run check_costume_heuristic(original_text)
-    # For now let's check description/title
     if check_costume_heuristic(final_title + " " + description):
         final_title = "⚠️ COSTUME: " + final_title
         color_id = "11" # Red
         
+    start_time = event_json.get('start_time')
+    end_time = event_json.get('end_time')
+
+    # Conflict Check
+    conflicts = check_calendar_conflicts(service, start_time, end_time)
+    if conflicts:
+        conflict_msg = f"\n\nCONFLICTS DETECTED: {', '.join(conflicts)}"
+        description += conflict_msg
+        final_title = "⚠️ CONFLICT: " + final_title
+
     event = {
         'summary': final_title,
         'location': event_json.get('location', ''),
         'description': description,
         'start': {
-            'dateTime': event_json.get('start_time'), # strict ISO 8601 coming from Gemini
-            'timeZone': 'Europe/London', # Assuming UK based on "Mufti", "Year 2", "£"
+            'dateTime': start_time, 
+            'timeZone': 'Europe/London', 
         },
         'end': {
-            'dateTime': event_json.get('end_time'),
+            'dateTime': end_time,
             'timeZone': 'Europe/London',
         },
         'colorId': color_id,
-        'status': 'tentative', # As requested: Grey/Tentative usually means 'tentative' in API or guestsCanModify?
-        # Actually Google Calendar 'status' can be 'confirmed', 'tentative', 'cancelled'. 
-        # Visually 'tentative' might look different (hatched).
+        'status': 'tentative', 
     }
     
+    # Logic:
+    # If approval_mode is True: DO NOT insert. Return the event dict for the pending queue.
+    # If dry_run is True: Print what would happen.
+    
+    if approval_mode:
+        # Return the event object intended for the "Pending" queue
+        # We add metadata for the UI
+        event['id'] = event_json.get('id', 'generated_' + datetime.now().strftime("%Y%m%d%H%M%S")) # Generate a temp ID if missing
+        event['source'] = event_json.get('source', 'email')
+        return "Queued for Approval", event
+
     if dry_run:
-        return f"[DRY RUN] Would create: {final_title} at {event_json.get('start_time')}"
+        return f"[DRY RUN] Would create: {final_title} at {start_time}", None
         
     try:
         event_result = service.events().insert(calendarId='primary', body=event).execute()
-        return f"Event created: {event_result.get('htmlLink')}"
+        return f"Event created: {event_result.get('htmlLink')}", None
     except Exception as e:
-        return f"Calendar Insert Failed: {e}"
+        return f"Calendar Insert Failed: {e}", None
 
 def run_pipeline(log_callback=print, event_callback=None):
     log_callback("Initializing ETL Pipeline...")
@@ -220,29 +253,59 @@ def run_pipeline(log_callback=print, event_callback=None):
     log_callback("Phase 1: Scanning Inbox...")
     emails = extract_emails(gmail_service)
     
-    if not emails:
-        log_callback("No relevant recent emails found.")
-        return
+    # Phase 1b: Portal Scanning (Async)
+    log_callback("Phase 1b: Scanning School Portal...")
+    try:
+         portal_events = asyncio.run(scan_school_portal())
+         if portal_events:
+             log_callback(f"Found {len(portal_events)} events from Portal.")
+         else:
+             log_callback("No events found from Portal.")
+    except Exception as e:
+        log_callback(f"Portal Scan Failed: {e}")
+        portal_events = []
 
-    log_callback(f"Found {len(emails)} candidate emails.")
+    # Combined Processing
+    # We treat extracted emails as 'raw sources' that need transform
+    # We treat portal events as 'already transformed' (mostly) but needing calendar loading
     
-    for email in emails:
-        log_callback(f"Processing: {email['subject']}...")
-        
-        # Transform
-        event_data = transform_email_content(email)
-        
-        if event_data:
-            log_callback(f"Transform SUCCESS: {json.dumps(event_data, indent=2)}")
+    # 1. Process Emails
+    if emails:
+        log_callback(f"Found {len(emails)} candidate emails.")
+        for email in emails:
+            log_callback(f"Processing Email: {email['subject']}...")
+            event_data = transform_email_content(email)
             
-            # Load
-            result = load_to_calendar(calendar_service, event_data)
-            log_callback(f"Load Result: {result}")
-            
-            if event_callback:
-                event_callback(event_data)
-        else:
-            log_callback("Transform: No event detected in email.")
+            if event_data:
+                event_data['source'] = 'email' # Tag source
+                log_callback(f"Transform SUCCESS: {json.dumps(event_data, indent=2)}")
+                
+                # Load (Approval Mode = True by default for Logistics Officer)
+                result_msg, pending_event = load_to_calendar(calendar_service, event_data, approval_mode=True)
+                log_callback(f"Load Result: {result_msg}")
+                
+                if pending_event and event_callback:
+                    event_callback(pending_event)
+            else:
+                log_callback("Transform: No event detected in email.")
+    else:
+        log_callback("No relevant recent emails found.")
+
+    # 2. Process Portal Events
+    if portal_events:
+        for p_event in portal_events:
+            log_callback(f"Processing Portal Event: {p_event.get('event_title')}...")
+            # Portal events are already JSON, proceed to Load
+            # Ensure they have required fields
+            if 'start_time' in p_event:
+                 result_msg, pending_event = load_to_calendar(calendar_service, p_event, approval_mode=True)
+                 log_callback(f"Load Result: {result_msg}")
+                 if pending_event and event_callback:
+                    event_callback(pending_event)
+            else:
+                log_callback("Skipping invalid portal event data.")
+
+    log_callback("ETL Job Finished.")
             
     log_callback("ETL Job Finished.")
 
