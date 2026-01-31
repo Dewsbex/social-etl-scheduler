@@ -9,13 +9,6 @@ async def scan_school_portal():
     Scans the configured School Portal for new events using Browser Use.
     Returns a list of event dictionaries similar to the email extractor.
     """
-    portal_url = os.getenv("SCHOOL_PORTAL_URL")
-    if not portal_url:
-        print("Logistics Officer: SCHOOL_PORTAL_URL not set. Skipping portal scan.")
-        return []
-
-    print(f"Logistics Officer: Scanning School Portal at {portal_url}...")
-    
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         print("Logistics Officer: GEMINI_API_KEY not set. Cannot use LLM for portal scan.")
@@ -24,55 +17,72 @@ async def scan_school_portal():
     # Initialize Gemini
     llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro", google_api_key=api_key)
 
-    task = f"""
-    1. Go to {portal_url}
-    2. Look for a "Calendar" or "Events" section. If you need to login, stop and report "Login Required" as an error (we are not handling auth yet).
-    3. Extract all future events listed.
-    4. For each event, extract: Title, Date, Time, Location, Description.
-    5. Return the result as a strict JSON list of objects with keys: event_title, start_time, end_time, location, description, subjects.
-    
-    Example format:
-    [
-        {{
-            "event_title": "Football Match",
-            "start_time": "2023-10-25T14:00:00",
-            "end_time": "2023-10-25T16:00:00",
-            "location": "School Field",
-            "description": "vs St. Mary's",
-            "subjects": ["Tristan"]
-        }}
+    urls = [
+        "https://app.weduc.co.uk/notice/daily/index",
+        "https://app.weduc.co.uk/dashboard/newsfeed/list/user/281474978573967",
+        "https://app.weduc.co.uk/message/message/index/folder/281474987931452",
+        "https://app.weduc.co.uk/message/message/index/folder/281474987931456",
+        "https://app.weduc.co.uk/calendar/event/index",
+        "https://bishopgilpin.schoolcloud.co.uk/Parent/Home"
     ]
-    """
+    
+    # Allow override via env for flexibility, but default to known user URLs
+    env_url = os.getenv("SCHOOL_PORTAL_URL")
+    if env_url and env_url not in urls:
+        urls.append(env_url)
 
-    try:
-        # Use default browser configuration
-        agent = Agent(task=task, llm=llm)
-        result = await agent.run()
+    all_events = []
+
+    for url in urls:
+        print(f"Logistics Officer: Scanning {url}...")
         
-        # Parse the result. The agent returns a History object, we need the final output.
-        # This part depends heavily on how the agent is prompted to return data.
-        # Ideally, we ask it to Output strictly JSON in its final response.
+        task = f"""
+        1. Go to {url}
+        2. If you see a Login Screen, stop immediately and return "LOGIN_REQUIRED".
+        3. Extract all relevant SCHOOL EVENTS listed on this page.
+        4. For each event, look for: Title, Date, Time, Location, Description.
+        5. Return the result as a strict JSON list of objects.
         
-        final_output = result.final_result() 
+        Format:
+        [
+            {{
+                "event_title": "Title",
+                "start_time": "ISO 8601",
+                "end_time": "ISO 8601",
+                "location": "Loc",
+                "description": "Desc",
+                "subjects": ["Tristan", "Benjamin"]
+            }}
+        ]
+        """
         
-        # Cleanup JSON if needed (Markdown fencing)
-        if "```json" in final_output:
-            final_output = final_output.split("```json")[1].split("```")[0].strip()
-        elif "```" in final_output:
-             final_output = final_output.split("```")[1].split("```")[0].strip()
-             
-        events = json.loads(final_output)
-        
-        # Tag source
-        for event in events:
-            event['source'] = 'portal'
+        try:
+            agent = Agent(task=task, llm=llm)
+            result = await agent.run()
+            final_output = result.final_result()
             
-        print(f"Logistics Officer: Found {len(events)} events from Portal.")
-        return events
+            if "LOGIN_REQUIRED" in final_output:
+                print(f"Logistics Officer: Login required for {url}. Please configure credentials.")
+                continue
 
-    except Exception as e:
-        print(f"Logistics Officer: Portal Scan Failed: {e}")
-        return []
+            if "```json" in final_output:
+                final_output = final_output.split("```json")[1].split("```")[0].strip()
+            elif "```" in final_output:
+                final_output = final_output.split("```")[1].split("```")[0].strip()
+                
+            page_events = json.loads(final_output)
+            # Tag source
+            for event in page_events:
+                event['source'] = 'portal'
+            
+            all_events.extend(page_events)
+            
+        except Exception as e:
+            print(f"Logistics Officer: Failed scanning {url}: {e}")
+            
+    # Return deduplicated or raw list
+    print(f"Logistics Officer: Found {len(all_events)} total events from Portal.")
+    return all_events
 
 if __name__ == "__main__":
     # Test run
