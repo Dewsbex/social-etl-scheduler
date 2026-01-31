@@ -36,9 +36,24 @@ async def scan_school_portal():
     for url in urls:
         print(f"Logistics Officer: Scanning {url}...")
         
+        # Prepare auth context
+        weduc_user = os.getenv("SCHOOL_USERNAME") or os.getenv("WEDUC_USERNAME")
+        weduc_pass = os.getenv("SCHOOL_PASSWORD") or os.getenv("WEDUC_PASSWORD")
+        auth_instruction = ""
+        if weduc_user and weduc_pass:
+            auth_instruction = f"""
+            IF you see a Login Screen:
+            1. Enter username: "{weduc_user}"
+            2. Enter password: "{weduc_pass}"
+            3. Click Login/Submit.
+            4. Wait for redirection to the dashboard.
+            """
+        else:
+            auth_instruction = 'If you see a Login Screen, stop immediately and return "LOGIN_REQUIRED".'
+
         task = f"""
         1. Go to {url}
-        2. If you see a Login Screen, stop immediately and return "LOGIN_REQUIRED".
+        2. {auth_instruction}
         3. Extract all relevant SCHOOL EVENTS listed on this page.
         4. For each event, look for: Title, Date, Time, Location, Description.
         5. Return the result as a strict JSON list of objects.
