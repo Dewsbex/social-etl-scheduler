@@ -37,52 +37,63 @@
             .header-panel { position: relative; top: 0; }
         }
 
-        /* LEFT COLUMN: The "Manifesto" Sidebar */
+        /* --- LEFT COLUMN: THE MANIFESTO TILE --- */
         .header-panel {
             position: sticky;
             top: 40px;
+            height: calc(100vh - 80px); /* Full viewport height minus padding */
             display: flex;
             flex-direction: column;
-            gap: 2rem;
         }
 
-        .brand-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 3.5rem;
-            font-weight: 600;
-            font-style: italic;
-            line-height: 0.95;
-            letter-spacing: -0.03em;
-            margin: 0;
-            color: #000;
+        .manifesto-card {
+            background: #FFFFFF;
+            border-radius: 24px;
+            padding: 3rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.06);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Pushes Save button to bottom */
+            box-sizing: border-box;
         }
 
         .unit-badge {
             font-family: 'Space Mono', monospace;
-            font-size: 0.7rem;
-            letter-spacing: 0.15em;
+            font-size: 0.75rem;
+            letter-spacing: 0.2em;
             text-transform: uppercase;
-            color: #666;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #ddd;
+            color: #888;
+            margin-bottom: 3rem;
+            display: block;
+        }
+
+        .brand-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 4.5rem; /* Hero Scale */
+            font-weight: 500;
+            font-style: italic;
+            line-height: 0.95;
+            letter-spacing: -0.04em;
+            color: #000;
+            margin: 0 0 2rem 0;
+        }
+
+        .separator-line {
+            width: 60px;
+            height: 2px;
+            background-color: #E0E0E0;
+            margin-bottom: 2rem;
         }
 
         .context-text {
-            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 1.1rem;
             line-height: 1.6;
-            color: #666;
+            color: #444;
+            max-width: 90%;
+            margin-bottom: auto; /* Allow text to sit comfortably */
         }
-
-        .nav-link {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: #999;
-            text-decoration: none;
-            margin-top: 10px;
-            display: inline-block;
-        }
-        .nav-link:hover { color: #000; }
 
         /* RIGHT COLUMN: The Masonry Layout */
         .cards-grid {
@@ -190,7 +201,13 @@
             gap: 6px;
         }
 
-        .category-tag.danger { border-color: #FF0055; color: #FF0055; background: #FFF5F7; }
+        /* --- EXCLUSION TAGS (Red Borders) --- */
+        .category-tag.danger {
+            color: #d00;
+            border-color: #fcc;
+            background: #fff5f5;
+            border-radius: 20px;
+        }
         
         .delete-btn { color: #CCC; cursor: pointer; font-weight: bold; font-size: 1.2rem; line-height: 1; }
         .delete-btn:hover { color: #FF0055; }
@@ -247,19 +264,30 @@
         .bucket-drawer h4 { margin: 0 0 10px 0; font-size: 0.7rem; text-transform: uppercase; color: #999; letter-spacing: 0.1em; }
 
         .bucket-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        /* --- MAPPED ITEMS: ORB BLUE PILLS --- */
         .assigned-chip {
-            background: #F8F8F8;
-            border: 1px solid #EEE;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            color: #666;
+            /* Socratic Orb Eye Blue */
+            border: 1px solid #00BFFF; 
+            background-color: rgba(0, 191, 255, 0.05); /* Very faint blue fill */
+            color: #00BFFF; 
+            
+            border-radius: 20px; /* Full Pill Shape */
+            padding: 4px 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
+            margin-top: 4px;
         }
-        .remove-id { color: #CCC; cursor: pointer; font-weight: bold; }
-        .remove-id:hover { color: #FF0055; }
+
+        .assigned-chip .remove-id {
+            color: #00BFFF;
+            opacity: 0.6;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .assigned-chip .remove-id:hover { opacity: 1; }
 
         /* =========================================
            6. ACTIONS (The Big Save Button)
@@ -309,32 +337,50 @@
 <div class="settings-container">
     
     <div class="header-panel">
-        <div>
-            <span class="unit-badge">UNIT: ETL-01 // CONFIGURATION</span>
-            <h1 class="brand-title">Slate<br>Config.</h1>
-            <p class="context-text">
-                Manage the extraction logic for the Social ETL pipeline. Changes apply immediately to the heuristic engine.
-            </p>
-            <a href="/dashboard" class="nav-link">← Terminal Dashboard</a>
-        </div>
-        
-        <div>
-            <div id="saveStatus" style="text-align:center; font-size:0.7rem; color:#00aa00; height:20px; margin-bottom:10px;"></div>
-            <button type="button" class="save-btn" onclick="saveSettings()">SAVE CHANGES</button>
-            <div class="sync-pulse" onclick="triggerSync()" id="syncBtn">Manual Pulse Sync</div>
+        <div class="vibe-card manifesto-card">
+            
+            <div>
+                <span class="unit-badge">UNIT: ETL-01 // CONFIGURATION</span>
+                
+                <h1 class="brand-title">The<br>Social ETL</h1>
+                
+                <div class="separator-line"></div>
+                
+                <p class="context-text">
+                    Manage identification of events.<br>
+                    Changes apply immediately and visible in next run.
+                </p>
+            </div>
+            
+            <div class="action-area">
+                <div id="saveStatus" style="text-align:center; font-size:0.7rem; color:#00aa00; height:20px; margin-bottom:10px;"></div>
+                <button type="button" class="save-btn" onclick="saveSettings()">SAVE CHANGES</button>
+                <div class="sync-pulse" onclick="triggerSync()" id="syncBtn">Manual Pulse Sync</div>
+            </div>
+            
         </div>
     </div>
 
     <div class="cards-grid">
         
+        <div class="vibe-card card-full-width">
+            <span class="card-label">01 / Event Label Mapping</span>
+            
+            <div class="mapper-section">
+                <div class="chip-pool" id="keywordPool"></div>
+                
+                <div id="childBuckets" class="buckets-grid"></div>
+            </div>
+        </div>
+
         <div class="vibe-card">
-            <span class="card-label">01 / Scope</span>
+            <span class="card-label">02 / Search Scope</span>
             
             <label style="font-size:0.8rem; font-weight:600; margin-bottom:5px; display:block;">Children</label>
             <div id="childrenTags" class="tag-display-area"></div>
             <div class="input-slot">
                 <input type="text" id="childrenInput" placeholder="Add Child...">
-                <button type="button" onclick="addTag('children')">+</button>
+                <button onclick="addTag('children')">+</button>
             </div>
 
             <div style="height:20px;"></div>
@@ -343,18 +389,18 @@
             <div id="year_groupsTags" class="tag-display-area"></div>
             <div class="input-slot">
                 <input type="text" id="year_groupsInput" placeholder="Add Year...">
-                <button type="button" onclick="addTag('year_groups')">+</button>
+                <button onclick="addTag('year_groups')">+</button>
             </div>
         </div>
 
         <div class="vibe-card">
-            <span class="card-label">02 / Filters</span>
+            <span class="card-label">03 / Event Qualifiers</span>
             
             <label style="font-size:0.8rem; font-weight:600; margin-bottom:5px; display:block;">Schools</label>
             <div id="schoolsTags" class="tag-display-area"></div>
             <div class="input-slot">
                 <input type="text" id="schoolsInput" placeholder="Add School...">
-                <button type="button" onclick="addTag('schools')">+</button>
+                <button onclick="addTag('schools')">+</button>
             </div>
 
             <div style="height:20px;"></div>
@@ -363,37 +409,33 @@
             <div id="clubsTags" class="tag-display-area"></div>
             <div class="input-slot">
                 <input type="text" id="clubsInput" placeholder="Add Club...">
-                <button type="button" onclick="addTag('clubs')">+</button>
+                <button onclick="addTag('clubs')">+</button>
             </div>
         </div>
 
         <div class="vibe-card">
-            <span class="card-label">03 / Triggers</span>
+            <span class="card-label">04 / Keywords</span>
+            <p style="font-size:0.75rem; color:#888; margin-bottom:1rem;">
+                Terms that trigger an event extraction.
+            </p>
             
-            <label style="font-size:0.8rem; font-weight:600; margin-bottom:5px; display:block;">Keywords</label>
             <div id="general_keywordsTags" class="tag-display-area"></div>
             <div class="input-slot">
                 <input type="text" id="general_keywordsInput" placeholder="Add Keyword...">
-                <button type="button" onclick="addTag('general_keywords')">+</button>
-            </div>
-
-            <div style="height:20px;"></div>
-
-            <label style="font-size:0.8rem; font-weight:600; margin-bottom:5px; display:block;">Noise Filter (Exclude)</label>
-            <div id="exclude_keywordsTags" class="tag-display-area"></div>
-            <div class="input-slot">
-                <input type="text" id="exclude_keywordsInput" placeholder="Exclude...">
-                <button type="button" onclick="addTag('exclude_keywords')">+</button>
+                <button onclick="addTag('general_keywords')">+</button>
             </div>
         </div>
 
-        <div class="vibe-card card-full-width">
-            <span class="card-label">04 / Visual Label Mapper</span>
+        <div class="vibe-card">
+            <span class="card-label">05 / Exclusions</span>
+            <p style="font-size:0.75rem; color:#888; margin-bottom:1rem;">
+                Strictly exclude emails containing these terms.
+            </p>
             
-            <div class="mapper-section">
-                <div class="chip-pool" id="keywordPool"></div>
-                
-                <div id="childBuckets" class="buckets-grid"></div>
+            <div id="exclude_keywordsTags" class="tag-display-area"></div>
+            <div class="input-slot" style="border-color: #ffdce0; background: #fff5f6;">
+                <input type="text" id="exclude_keywordsInput" placeholder="Exclude Term..." style="color: #d00;">
+                <button onclick="addTag('exclude_keywords')" style="color:#d00; background:#ffdce0;">×</button>
             </div>
         </div>
 
