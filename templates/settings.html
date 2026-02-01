@@ -354,7 +354,10 @@
         <div class="vibe-card manifesto-card">
             
             <div>
-                <img src="/static/images/hero-branding.png" alt="Logistics Branding" style="width: 130%; height: auto; border-radius: 12px; margin-bottom: 2.5rem; margin-left: -15%; display: block; opacity: 0.9;">
+                <div style="position: relative; width: 130%; margin-left: -15%; margin-bottom: 2.5rem; cursor: pointer;" onclick="playHeroVideo()">
+                    <img id="hero-img" src="/static/images/hero-branding.png" alt="Logistics Branding" style="width: 100%; height: auto; border-radius: 12px; display: block; opacity: 0.9;">
+                    <video id="hero-video" src="/static/images/edited_looper.mp4" style="width: 100%; height: auto; border-radius: 12px; display: none; opacity: 1;" playsinline></video>
+                </div>
                 
                 <h1 class="brand-title">The<br>Social ETL</h1>
                 
@@ -669,6 +672,21 @@
             if (r.ok) b.innerText = "PULSE TRANSMITTED";
             setTimeout(() => b.innerText = originalText, 3000);
         } catch (e) { b.innerText = "ERROR"; }
+    }
+
+    function playHeroVideo() {
+        const img = document.getElementById('hero-img');
+        const video = document.getElementById('hero-video');
+        if (video.style.display === 'block') return; // Already playing
+        
+        img.style.display = 'none';
+        video.style.display = 'block';
+        video.play();
+        
+        video.onended = function() {
+            video.style.display = 'none';
+            img.style.display = 'block';
+        };
     }
 
     loadData();
