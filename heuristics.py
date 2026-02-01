@@ -11,12 +11,24 @@ def identify_child(text):
     
     config = load_config()
     search_settings = config.get("search_settings", {})
+    filtering_logic = config.get("filtering_logic", {})
     
     # Load settings with fallbacks
     children = search_settings.get("children", ["Benjamin Dewsbery", "Tristan Dewsbery"])
     year_groups = search_settings.get("year_groups", ["Year 3", "Year 5", "Year 6", "Reception Year"])
     clubs = search_settings.get("clubs", ["FOBG", "Friends of Bishop Gilpin", "Krispy Kreme", "Wednesday Notice", "PTA"])
     general_keywords = search_settings.get("general_keywords", ["School Trip", "Assembly", "Sports Day", "Parent Evening", "Costume Day", "donut", "fundraiser"])
+    
+    # --- PHASE 0: EXCLUSION GUARDRAIL ---
+    exclude_keywords = filtering_logic.get("exclude_keywords", [])
+    strict_overrides = filtering_logic.get("strict_override_keywords", [])
+    
+    # If we find an override, we bypass exclusions
+    has_override = any(o.lower() in text_lower for o in strict_overrides)
+    if not has_override:
+        for ex in exclude_keywords:
+            if ex.lower() in text_lower:
+                return "IGNORE"
     
     # 1. Extraction of Year Groups (Year 1, Y1, etc.)
     years_found = re.findall(r'year\s*(\d)|y(\d)', text_lower)

@@ -162,6 +162,13 @@ def transform_email_content(email_data, log_callback=print):
     # Strip HTML for cleaner extraction
     body_clean = strip_html(email_data.get('body', ''))
     
+    # Load configuration for dynamic prompting
+    config = load_config()
+    search_settings = config.get("search_settings", {})
+    children = search_settings.get("children", ["Benjamin Dewsbery", "Tristan Dewsbery"])
+    keywords = search_settings.get("general_keywords", [])
+    years = search_settings.get("year_groups", [])
+
     prompt = f"""
     You are a Logistics Officer. Your goal is to extract calendar events/deadlines from school emails.
     
@@ -169,10 +176,10 @@ def transform_email_content(email_data, log_callback=print):
     Email Body:
     {body_clean[:4000]}
     
-    Priority Targets:
-    - "New Notice", "Update", "Reminder", "Bishop Gilpin Update"
-    - Christmas Lunch, Nativity, Flu Vaccinations, Winter Fair, Shakespeare Week.
-    - Deadlines, early closures, club reminders.
+    Contextual Targets:
+    - Children: {', '.join(children)}
+    - Keywords: {', '.join(keywords)}
+    - Year Groups: {', '.join(years)}
     
     Instructions:
     - Look for dates in SUBJECT and Body.
@@ -180,7 +187,7 @@ def transform_email_content(email_data, log_callback=print):
     - EXTRACT EVERY REAL EVENT (Trips, Early Closures, Sales, Deadlines, Medical).
     - Even extract past events (Nov 2025) for testing.
     - If year is missing: assume 2026 if date is in Jan-Aug, or 2025 if it's Nov-Dec.
-    - Distinguish between Tristan (Year 3/5) and Benjamin (Reception/Year 2).
+    - Distinguish between children based on their name or associated Year Group.
     - Handle double-date formats like "11/03/2026/11/03/2026" by taking the first part.
     
     Return a JSON object with:
@@ -195,7 +202,7 @@ def transform_email_content(email_data, log_callback=print):
         "end_time": "YYYY-MM-DDTHH:MM:SS",
         "location": "Bishop Gilpin / School",
         "description": "Details...",
-        "subjects": ["Tristan", "Benjamin"]
+        "subjects": ["Child Name 1", "Child Name 2"]
     }}
     """
     
@@ -400,9 +407,13 @@ def run_pipeline(log_callback=print, event_callback=None):
                 event_data['source'] = 'email' # Tag source
                 log_callback(f"   > Date Extracted: {event_data['start_time'][:10]}")
                 
-                # Load (Automated Mode = False for daily run)
-                result_msg, pending_event = load_to_calendar(calendar_service, event_data, approval_mode=False, raw_body=email.get('body'))
-                log_callback(f" > Auto-Created: {result_msg}")
+                # Load (Approval Mode = True for Vibe Lab Logistics)
+                result_msg, pending_event = load_to_calendar(calendar_service, event_data, approval_mode=True, raw_body=email.get('body'))
+                log_callback(f" > {result_msg}")
+                
+                # If approval_mode is True, send to Logistics Module via callback
+                if pending_event and event_callback:
+                    event_callback(pending_event)
             
             # Rate limit to avoid 429 quota errors on free tier (15 RPM)
             # Increased to 10s for absolute safety
@@ -417,8 +428,13 @@ def run_pipeline(log_callback=print, event_callback=None):
             # Portal events are already JSON, proceed to Load
             # Ensure they have required fields
             if 'start_time' in p_event:
-                 result_msg, pending_event = load_to_calendar(calendar_service, p_event, approval_mode=False)
-                 log_callback(f" > Auto-Created: {result_msg}")
+                 # Load (Approval Mode = True for Portal Events)
+                 result_msg, pending_event = load_to_calendar(calendar_service, p_event, approval_mode=True)
+                 log_callback(f" > {result_msg}")
+                 
+                 # If approval_mode is True, send to Logistics Module via callback
+                 if pending_event and event_callback:
+                     event_callback(pending_event)
             else:
                 log_callback("Skipping invalid portal event data.")
 
