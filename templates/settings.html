@@ -11,13 +11,21 @@
            1. THE LAB ENVIRONMENT (Background)
            ========================================= */
         body {
-            background-color: #F0F0F0; /* Vibe Station Grey */
+            /* CHANGED: Deepened from #F0F0F0 to #EDEDED for better card contrast */
+            background-color: #EDEDED; 
+            /* Optional: Adds subtle paper texture */
+            background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.04"/%3E%3C/svg%3E');
+            
             color: #111;
             font-family: 'Inter', sans-serif;
             margin: 0;
-            padding: 40px;
+            padding: 60px; /* Matched to Vibe Station spacing */
             min-height: 100vh;
             box-sizing: border-box;
+            
+            /* CRITICAL: Makes text look crisp on the grey background */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         /* =========================================
@@ -27,9 +35,12 @@
             max-width: 1400px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 300px 1fr; /* Sticky Sidebar | Main Grid */
+            grid-template-columns: 310px 1fr; /* Left Sidebar | Right Content */
             gap: 60px;
-            align-items: start;
+            
+            /* CHANGED: 'start' -> 'stretch' */
+            /* CRITICAL: Forces the Left Column to match the Right Column's height */
+            align-items: stretch; 
         }
 
         @media (max-width: 900px) {
@@ -39,11 +50,12 @@
 
         /* --- LEFT COLUMN: THE MANIFESTO TILE --- */
         .header-panel {
-            position: sticky;
-            top: 40px;
-            height: calc(100vh - 80px); /* Full viewport height minus padding */
+            /* REMOVED: position: sticky, top, height calculation */
             display: flex;
             flex-direction: column;
+            
+            /* CHANGED: Let it auto-fill the stretched grid cell */
+            height: auto; 
         }
 
         .manifesto-card {

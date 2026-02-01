@@ -12,14 +12,22 @@
            1. VIBE LAB ENVIRONMENT (Background)
            ========================================= */
         body {
-            background-color: #F0F0F0;
+            /* CHANGED: Deepened from #F0F0F0 to #EDEDED for better card contrast */
+            background-color: #EDEDED; 
+            /* Optional: Adds subtle paper texture */
+            background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.04"/%3E%3C/svg%3E');
+
             color: #111;
             font-family: 'Inter', sans-serif;
             margin: 0;
-            padding: 40px;
+            padding: 60px; /* Matched to Vibe Station spacing */
             min-height: 100vh;
             box-sizing: border-box;
             overflow-x: hidden;
+
+            /* CRITICAL: Makes text look crisp on the grey background */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         #canvas-orb {
@@ -41,8 +49,11 @@
             margin: 0 auto;
             display: grid;
             grid-template-columns: 350px 1fr;
-            gap: 40px;
-            align-items: start;
+            gap: 60px; /* Increased for Vibe Station spacing */
+            
+            /* CHANGED: 'start' -> 'stretch' */
+            /* CRITICAL: Forces the Left Column to match the Right Column's height */
+            align-items: stretch;
         }
 
         @media (max-width: 1000px) {
@@ -51,11 +62,11 @@
 
         /* LEFT COLUMN: The "Manifesto" Sidebar */
         .sidebar {
-            position: sticky;
-            top: 40px;
+            /* REMOVED: position: sticky, top */
             display: flex;
             flex-direction: column;
             gap: 2rem;
+            height: auto;
         }
 
         .brand-title {
