@@ -155,7 +155,64 @@
             box-shadow: 0 0 15px var(--accent-color);
         }
 
-        /* Tag Input Style Simulation using textareas */
+        /* Tag Input Style Simulation */
+        .tag-input-wrapper {
+            background: #000;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            min-height: 50px;
+        }
+
+        .category-tag-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .category-tag {
+            background: var(--accent-dim);
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            padding: 2px 8px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .category-tag.danger {
+            border-color: var(--danger-color);
+            color: var(--danger-color);
+            background: rgba(255, 0, 85, 0.1);
+        }
+
+        .input-with-btn {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-with-btn input {
+            flex: 1;
+            background: #111;
+            border: 1px solid var(--border-color);
+            color: var(--success-color);
+            padding: 8px;
+            font-family: inherit;
+        }
+
+        .input-with-btn button {
+            background: none;
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+            padding: 0 15px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .input-with-btn button:hover {
+            background: var(--accent-dim);
+        }
     </style>
 </head>
 <body>
@@ -185,33 +242,62 @@
     <form id="settingsForm">
         <!-- Search Params -->
         <div class="settings-section">
-            <h2 class="section-title">Search Parameters</h2>
+            <h2 class="section-title">Search Parameters & Labels</h2>
             
             <div class="form-group">
                 <label>Master Labels (Calendar Tags)</label>
-                <textarea id="children" placeholder="e.g. Benjamin, Tristan, Household"></textarea>
-                <div class="help-text">These are the <b>final labels</b> that appear on your calendar. Each name here creates a "Drop Zone" in the Visual Mapper below.</div>
+                <div class="tag-input-wrapper">
+                    <div id="childrenTags" class="category-tag-container"></div>
+                    <div class="input-with-btn">
+                        <input type="text" id="childrenInput" placeholder="Add Label (e.g. Benjamin)">
+                        <button type="button" onclick="addTag('children')">ADD</button>
+                    </div>
+                </div>
+                <div class="help-text">These are the final labels that appear on your calendar and create drop zones below.</div>
             </div>
 
             <div class="form-group">
                 <label>Year Groups</label>
-                <textarea id="year_groups" placeholder="e.g. Year 3, Year 5"></textarea>
+                <div class="tag-input-wrapper">
+                    <div id="year_groupsTags" class="category-tag-container"></div>
+                    <div class="input-with-btn">
+                        <input type="text" id="year_groupsInput" placeholder="Add Year (e.g. Year 2)">
+                        <button type="button" onclick="addTag('year_groups')">ADD</button>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
                 <label>Schools</label>
-                <textarea id="schools" placeholder="e.g. Bishop Gilpin"></textarea>
+                <div class="tag-input-wrapper">
+                    <div id="schoolsTags" class="category-tag-container"></div>
+                    <div class="input-with-btn">
+                        <input type="text" id="schoolsInput" placeholder="Add School (e.g. Bishop Gilpin)">
+                        <button type="button" onclick="addTag('schools')">ADD</button>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
                 <label>Clubs & Organizations</label>
-                <textarea id="clubs" placeholder="e.g. FOBG, PTA, Krispy Kreme"></textarea>
+                <div class="tag-input-wrapper">
+                    <div id="clubsTags" class="category-tag-container"></div>
+                    <div class="input-with-btn">
+                        <input type="text" id="clubsInput" placeholder="Add Club (e.g. FOBG)">
+                        <button type="button" onclick="addTag('clubs')">ADD</button>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
                 <label>General Keywords</label>
-                <textarea id="general_keywords" placeholder="e.g. School Trip, Assembly, Sports Day"></textarea>
-                <div class="help-text">General terms that might indicate an event even if a specific name isn't found.</div>
+                <div class="tag-input-wrapper">
+                    <div id="general_keywordsTags" class="category-tag-container"></div>
+                    <div class="input-with-btn">
+                        <input type="text" id="general_keywordsInput" placeholder="Add Keyword (e.g. Assembly)">
+                        <button type="button" onclick="addTag('general_keywords')">ADD</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -221,14 +307,24 @@
             
             <div class="form-group">
                 <label>Exclude Keywords (Noise Filter)</label>
-                <textarea id="exclude_keywords" style="border-color: var(--danger-color); color: #ffaaaa;" placeholder="e.g. NEWSLETTER, MARC"></textarea>
-                <div class="help-text">Emails containing these words in the subject/body will be ignored.</div>
+                <div class="tag-input-wrapper">
+                    <div id="exclude_keywordsTags" class="category-tag-container danger-tags"></div>
+                    <div class="input-with-btn">
+                        <input type="text" id="exclude_keywordsInput" placeholder="Add Noise Filter">
+                        <button type="button" style="border-color: var(--danger-color); color: var(--danger-color);" onclick="addTag('exclude_keywords')">ADD</button>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
                 <label>Strict Override Keywords</label>
-                <textarea id="strict_override_keywords" placeholder="e.g. closing, closed, office"></textarea>
-                <div class="help-text">If these words are found, force association with "Bishop Gilpin" even if no specific child is named.</div>
+                <div class="tag-input-wrapper">
+                    <div id="strict_override_keywordsTags" class="category-tag-container"></div>
+                    <div class="input-with-btn">
+                        <input type="text" id="strict_override_keywordsInput" placeholder="Add Override">
+                        <button type="button" onclick="addTag('strict_override_keywords')">ADD</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -374,14 +470,14 @@
 <script>
     // --- Visual Mapper State ---
     let currentMappings = {}; // e.g. { "Benjamin": ["Year 2"] }
+    let categoryData = {}; // Stores arrays for each category
 
     function updateMapperPool() {
-        // 1. Collect ALL keywords from the 5 search textareas
-        const split = (str) => str.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        // Collect ALL keywords from the 5 search categories
         const ids = ['children', 'year_groups', 'schools', 'clubs', 'general_keywords'];
         let allKeywords = [];
         ids.forEach(id => {
-            allKeywords = allKeywords.concat(split(document.getElementById(id).value));
+            allKeywords = allKeywords.concat(categoryData[id] || []);
         });
 
         // 2. Filter out keywords that are already assigned
@@ -405,8 +501,6 @@
             `;
             el.draggable = true;
             
-            // Only the label part initiates drag to avoid misclicks on X
-            const label = el.querySelector('.tag-label');
             el.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', keyword);
                 el.classList.add('dragging');
@@ -421,27 +515,73 @@
         
         const ids = ['children', 'year_groups', 'schools', 'clubs', 'general_keywords'];
         ids.forEach(id => {
-            const el = document.getElementById(id);
-            const val = el.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
-            const updated = val.filter(k => k !== keyword);
-            el.value = updated.join(', ');
+            if (categoryData[id]) {
+                categoryData[id] = categoryData[id].filter(k => k !== keyword);
+                renderCategoryTags(id);
+            }
         });
 
         // Also remove from any mappings
-        Object.keys(currentMappings).forEach(child => {
-            currentMappings[child] = currentMappings[child].filter(k => k !== keyword);
+        Object.keys(currentMappings).forEach(label => {
+            currentMappings[label] = currentMappings[label].filter(k => k !== keyword);
         });
 
         updateMapperPool();
-        const children = split(document.getElementById('children').value);
-        renderBuckets(children);
+        renderBuckets(categoryData['children'] || []);
     }
 
-    function renderBuckets(childrenNames) {
+    function renderCategoryTags(category) {
+        const container = document.getElementById(category + 'Tags');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        const items = categoryData[category] || [];
+        const isDanger = category === 'exclude_keywords';
+
+        items.forEach(value => {
+            const tag = document.createElement('div');
+            tag.className = `category-tag ${isDanger ? 'danger' : ''}`;
+            tag.innerHTML = `
+                <span>${value}</span>
+                <span class="delete-tag" onclick="removeCategoryTag('${category}', '${value.replace(/'/g, "\\'")}')">×</span>
+            `;
+            container.appendChild(tag);
+        });
+        
+        // After rendering category tags, refresh pool and buckets
+        updateMapperPool();
+        if (category === 'children') renderBuckets(items);
+    }
+
+    function addTag(category) {
+        const input = document.getElementById(category + 'Input');
+        const val = input.value.trim();
+        if (!val) return;
+        
+        if (!categoryData[category]) categoryData[category] = [];
+        if (!categoryData[category].includes(val)) {
+            categoryData[category].push(val);
+            input.value = '';
+            renderCategoryTags(category);
+        }
+    }
+
+    function removeCategoryTag(category, value) {
+        categoryData[category] = categoryData[category].filter(v => v !== value);
+        
+        // Also clean up from mappings if it was a keyword
+        Object.keys(currentMappings).forEach(label => {
+            currentMappings[label] = currentMappings[label].filter(k => k !== value);
+        });
+
+        renderCategoryTags(category);
+    }
+
+    function renderBuckets(labels) {
         const grid = document.getElementById('childBuckets');
         grid.innerHTML = '';
 
-        childrenNames.forEach(fullName => {
+        labels.forEach(fullName => {
             const firstName = fullName.split(' ')[0];
             const div = document.createElement('div');
             div.className = 'child-bucket';
@@ -479,21 +619,19 @@
         });
     }
 
-    function addMapping(child, keyword) {
-        if (!currentMappings[child]) currentMappings[child] = [];
-        if (!currentMappings[child].includes(keyword)) {
-            currentMappings[child].push(keyword);
+    function addMapping(label, keyword) {
+        if (!currentMappings[label]) currentMappings[label] = [];
+        if (!currentMappings[label].includes(keyword)) {
+            currentMappings[label].push(keyword);
             updateMapperPool();
-            const children = document.getElementById('children').value.split(',').map(s => s.trim()).filter(s => s.length > 0);
-            renderBuckets(children);
+            renderBuckets(categoryData['children'] || []);
         }
     }
 
-    function removeMapping(child, keyword) {
-        currentMappings[child] = currentMappings[child].filter(k => k !== keyword);
+    function removeMapping(label, keyword) {
+        currentMappings[label] = currentMappings[label].filter(k => k !== keyword);
         updateMapperPool();
-        const children = document.getElementById('children').value.split(',').map(s => s.trim()).filter(s => s.length > 0);
-        renderBuckets(children);
+        renderBuckets(categoryData['children'] || []);
     }
 
     // Load Data
@@ -507,35 +645,36 @@
             document.getElementById('currentStatus').innerText = data.status.current_status;
             document.getElementById('eventsCreated').innerText = data.status.events_created_session;
             
-            // Render Form
+            // Initial State
             const config = data.config;
             const search = config.search_settings || {};
             const logic = config.filtering_logic || {};
             
-            // Helper to join array
-            const join = (arr) => (arr || []).join(', ');
+            categoryData = {
+                children: search.children || [],
+                year_groups: search.year_groups || [],
+                schools: search.schools || [],
+                clubs: search.clubs || [],
+                general_keywords: search.general_keywords || [],
+                exclude_keywords: logic.exclude_keywords || [],
+                strict_override_keywords: logic.strict_override_keywords || []
+            };
 
-            document.getElementById('children').value = join(search.children);
-            document.getElementById('year_groups').value = join(search.year_groups);
-            document.getElementById('schools').value = join(search.schools);
-            document.getElementById('clubs').value = join(search.clubs);
-            document.getElementById('general_keywords').value = join(search.general_keywords);
-            
-            document.getElementById('exclude_keywords').value = join(logic.exclude_keywords);
-            document.getElementById('strict_override_keywords').value = join(logic.strict_override_keywords);
-
-            // Initial Mappings State
             currentMappings = config.child_mappings || {};
-            
-            // Add listeners to textareas to update the pool in real-time
-            ['children', 'year_groups', 'schools', 'clubs', 'general_keywords'].forEach(id => {
-                document.getElementById(id).addEventListener('input', updateMapperPool);
-            });
 
-            // Initial Render of Mapper
-            const children = split(document.getElementById('children').value);
-            renderBuckets(children);
-            updateMapperPool();
+            // Render all categories
+            Object.keys(categoryData).forEach(cat => renderCategoryTags(cat));
+
+            // Set up keyboard listeners
+            Object.keys(categoryData).forEach(cat => {
+                const input = document.getElementById(cat + 'Input');
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTag(cat);
+                    }
+                });
+            });
             
         } catch (e) {
             console.error(e);
@@ -543,21 +682,19 @@
         }
     }
 
-    const split = (str) => str.split(',').map(s => s.trim()).filter(s => s.length > 0);
-
     // Save Data
     async function saveSettings() {
         const newConfig = {
             search_settings: {
-                children: split(document.getElementById('children').value),
-                year_groups: split(document.getElementById('year_groups').value),
-                schools: split(document.getElementById('schools').value),
-                clubs: split(document.getElementById('clubs').value),
-                general_keywords: split(document.getElementById('general_keywords').value)
+                children: categoryData.children,
+                year_groups: categoryData.year_groups,
+                schools: categoryData.schools,
+                clubs: categoryData.clubs,
+                general_keywords: categoryData.general_keywords
             },
             filtering_logic: {
-                exclude_keywords: split(document.getElementById('exclude_keywords').value),
-                strict_override_keywords: split(document.getElementById('strict_override_keywords').value)
+                exclude_keywords: categoryData.exclude_keywords,
+                strict_override_keywords: categoryData.strict_override_keywords
             },
             child_mappings: currentMappings
         };
