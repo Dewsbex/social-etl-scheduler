@@ -4,532 +4,459 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - Social ETL Scheduler</title>
-    <!-- Use the same cyberpunk style as index.html -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Playfair+Display:ital,wght@0,400;1,400&family=Space+Mono&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-color: #0d0d12;
-            --text-color: #e0e0e0;
-            --accent-color: #00ffff;
-            --accent-dim: rgba(0, 255, 255, 0.1);
-            --border-color: #333;
-            --card-bg: #1a1a20;
-            --success-color: #00ff9d;
-            --danger-color: #ff0055;
-        }
-
+        /* =========================================
+           1. THE CHASSIS (Container & Background)
+           ========================================= */
         body {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            background-color: #0b0b0b; /* The Void */
+            color: #e0e0e0;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
             margin: 0;
             padding: 20px;
-            overflow-x: hidden;
+            box-sizing: border-box;
         }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
+        .settings-card {
+            background-color: #141414; /* Chassis Grey */
+            border: 1px solid #333;
+            width: 95%; 
+            max-width: 600px;
+            padding: 2rem;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            position: relative;
+            border-radius: 2px;
         }
 
-        header {
-            border-bottom: 1px solid var(--accent-color);
-            padding-bottom: 20px;
-            margin-bottom: 30px;
+        /* =========================================
+           2. TYPOGRAPHY & ID
+           ========================================= */
+        .settings-header {
+            border-bottom: 1px solid #333;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
         }
 
-        h1 {
-            color: var(--accent-color);
+        .settings-title {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-size: 2.2rem;
+            color: #fff;
             margin: 0;
-            font-size: 24px;
+            line-height: 1;
+        }
+
+        .serial-id {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6rem;
+            color: #fff;
+            opacity: 0.3;
+            letter-spacing: 0.2em;
+            border: 1px solid #444;
+            padding: 4px 8px;
             text-transform: uppercase;
-            letter-spacing: 2px;
         }
 
         .nav-link {
-            color: var(--text-color);
-            text-decoration: none;
-            border: 1px solid var(--accent-color);
-            padding: 8px 16px;
-            transition: all 0.3s;
-        }
-
-        .nav-link:hover {
-            background: var(--accent-dim);
-            box-shadow: 0 0 10px var(--accent-color);
-        }
-
-        .status-panel {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            padding: 20px;
-            margin-bottom: 30px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-        }
-
-        .stat-box h3 {
-            margin: 0 0 10px 0;
-            font-size: 14px;
-            color: #888;
-        }
-
-        .stat-value {
-            font-size: 20px;
-            color: var(--success-color);
-            font-weight: bold;
-        }
-
-        .settings-section {
-            margin-bottom: 40px;
-        }
-
-        .section-title {
-            color: var(--accent-color);
-            border-bottom: 1px dashed var(--border-color);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            font-size: 18px;
-        }
-
-        .form-group {
-            margin-bottom: 25px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #aaa;
-            font-size: 14px;
-        }
-
-        textarea {
-            width: 100%;
-            background: #000;
-            border: 1px solid var(--border-color);
-            color: var(--success-color);
-            font-family: 'Courier New', monospace;
-            padding: 10px;
-            min-height: 80px;
-            resize: vertical;
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: var(--accent-color);
-        }
-
-        .help-text {
-            font-size: 12px;
+            position: absolute;
+            top: -30px;
+            left: 0;
             color: #666;
-            margin-top: 5px;
-        }
-
-        .action-bar {
-            position: sticky;
-            bottom: 20px;
-            background: var(--card-bg);
-            padding: 20px;
-            border: 1px solid var(--accent-color);
-            display: flex;
-            justify-content: flex-end;
-            gap: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-        }
-
-        button.primary {
-            background: var(--accent-color);
-            color: #000;
-            border: none;
-            padding: 10px 25px;
-            font-weight: bold;
-            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.7rem;
             text-transform: uppercase;
-            font-family: inherit;
-        }
-        
-        button.primary:hover {
-            box-shadow: 0 0 15px var(--accent-color);
+            letter-spacing: 0.1em;
         }
 
-        /* Tag Input Style Simulation */
-        .tag-input-wrapper {
-            background: #000;
-            border: 1px solid var(--border-color);
-            padding: 10px;
-            min-height: 50px;
+        .nav-link:hover { color: #00FFFF; }
+
+        /* =========================================
+           3. DATA SLOTS (Inputs)
+           ========================================= */
+        .input-group {
+            margin-bottom: 1.5rem;
         }
 
-        .category-tag-container {
+        .input-group label {
+            display: block;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #666;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .tag-display-area {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 10px;
+            gap: 6px;
+            margin-bottom: 8px;
         }
 
-        .category-tag {
-            background: var(--accent-dim);
-            color: var(--accent-color);
-            border: 1px solid var(--accent-color);
+        .input-slot {
+            width: 100%;
+            background-color: #0b0b0b; /* Recessed */
+            border: 1px solid #333;
+            border-left: 3px solid #333; /* The Status Bar */
+            color: #fff;
+            padding: 1rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-slot:focus-within {
+            outline: none;
+            background-color: #111;
+            border-color: #555;
+            border-left-color: #00FFFF;
+        }
+
+        .input-slot input {
+            background: transparent;
+            border: none;
+            color: #fff;
+            flex: 1;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .input-slot button {
+            background: none;
+            border: 1px solid #444;
+            color: #666;
+            font-size: 0.6rem;
             padding: 2px 8px;
-            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .input-slot button:hover { border-color: #00FFFF; color: #00FFFF; }
+
+        .category-tag {
+            background: rgba(0, 255, 255, 0.05);
+            color: #00FFFF;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            padding: 2px 8px;
+            font-size: 0.75rem;
             display: flex;
             align-items: center;
             gap: 6px;
         }
 
         .category-tag.danger {
-            border-color: var(--danger-color);
-            color: var(--danger-color);
-            background: rgba(255, 0, 85, 0.1);
+            color: #ff0055;
+            border-color: rgba(255, 0, 85, 0.3);
+            background: rgba(255, 0, 85, 0.05);
         }
 
-        .input-with-btn {
-            display: flex;
-            gap: 10px;
+        /* =========================================
+           4. THE STACKED TRAY (Mapper)
+           ========================================= */
+        .mapper-section {
+            margin-top: 2rem;
+            border-top: 1px solid #333;
+            padding-top: 1.5rem;
         }
 
-        .input-with-btn input {
-            flex: 1;
-            background: #111;
-            border: 1px solid var(--border-color);
-            color: var(--success-color);
-            padding: 8px;
-            font-family: inherit;
+        .mapper-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #666;
+            margin-bottom: 1rem;
+            display: block;
         }
 
-        .input-with-btn button {
-            background: none;
-            border: 1px solid var(--accent-color);
-            color: var(--accent-color);
-            padding: 0 15px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .input-with-btn button:hover {
-            background: var(--accent-dim);
-        }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <header>
-        <h1>System Configuration</h1>
-        <a href="/dashboard" class="nav-link">&lt; Terminal</a>
-    </header>
-
-    <!-- Status Panel -->
-    <div class="status-panel" id="statusPanel">
-        <div class="stat-box">
-            <h3>Last Successful Run</h3>
-            <div class="stat-value" id="lastRun">Loading...</div>
-        </div>
-        <div class="stat-box">
-            <h3>Current Status</h3>
-            <div class="stat-value" id="currentStatus">Loading...</div>
-        </div>
-        <div class="stat-box">
-            <h3>Events Created (Session)</h3>
-            <div class="stat-value" id="eventsCreated">Loading...</div>
-        </div>
-    </div>
-
-    <form id="settingsForm">
-        <!-- Search Params -->
-        <div class="settings-section">
-            <h2 class="section-title">Search Parameters & Labels</h2>
-            
-            <div class="form-group">
-                <label>Master Labels (Calendar Tags)</label>
-                <div class="tag-input-wrapper">
-                    <div id="childrenTags" class="category-tag-container"></div>
-                    <div class="input-with-btn">
-                        <input type="text" id="childrenInput" placeholder="Add Label (e.g. Benjamin)">
-                        <button type="button" onclick="addTag('children')">ADD</button>
-                    </div>
-                </div>
-                <div class="help-text">These are the final labels that appear on your calendar and create drop zones below.</div>
-            </div>
-
-            <div class="form-group">
-                <label>Year Groups</label>
-                <div class="tag-input-wrapper">
-                    <div id="year_groupsTags" class="category-tag-container"></div>
-                    <div class="input-with-btn">
-                        <input type="text" id="year_groupsInput" placeholder="Add Year (e.g. Year 2)">
-                        <button type="button" onclick="addTag('year_groups')">ADD</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Schools</label>
-                <div class="tag-input-wrapper">
-                    <div id="schoolsTags" class="category-tag-container"></div>
-                    <div class="input-with-btn">
-                        <input type="text" id="schoolsInput" placeholder="Add School (e.g. Bishop Gilpin)">
-                        <button type="button" onclick="addTag('schools')">ADD</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Clubs & Organizations</label>
-                <div class="tag-input-wrapper">
-                    <div id="clubsTags" class="category-tag-container"></div>
-                    <div class="input-with-btn">
-                        <input type="text" id="clubsInput" placeholder="Add Club (e.g. FOBG)">
-                        <button type="button" onclick="addTag('clubs')">ADD</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>General Keywords</label>
-                <div class="tag-input-wrapper">
-                    <div id="general_keywordsTags" class="category-tag-container"></div>
-                    <div class="input-with-btn">
-                        <input type="text" id="general_keywordsInput" placeholder="Add Keyword (e.g. Assembly)">
-                        <button type="button" onclick="addTag('general_keywords')">ADD</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Filter Logic -->
-        <div class="settings-section">
-            <h2 class="section-title">Filtering Logic</h2>
-            
-            <div class="form-group">
-                <label>Exclude Keywords (Noise Filter)</label>
-                <div class="tag-input-wrapper">
-                    <div id="exclude_keywordsTags" class="category-tag-container danger-tags"></div>
-                    <div class="input-with-btn">
-                        <input type="text" id="exclude_keywordsInput" placeholder="Add Noise Filter">
-                        <button type="button" style="border-color: var(--danger-color); color: var(--danger-color);" onclick="addTag('exclude_keywords')">ADD</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Strict Override Keywords</label>
-                <div class="tag-input-wrapper">
-                    <div id="strict_override_keywordsTags" class="category-tag-container"></div>
-                    <div class="input-with-btn">
-                        <input type="text" id="strict_override_keywordsInput" placeholder="Add Override">
-                        <button type="button" onclick="addTag('strict_override_keywords')">ADD</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Association Mappings -->
-        <div class="settings-section">
-            <h2 class="section-title">Visual Label Mapper (Drag & Drop)</h2>
-            <div class="mapper-layout">
-                <div class="mapper-pool">
-                    <label>Unassigned Keywords Pool</label>
-                    <div id="keywordPool" class="tag-container">
-                        <!-- Keywords from top sections will appear here -->
-                    </div>
-                    <div class="help-text">Keywords defined in Search Parameters appear here. Drag them to a child below.</div>
-                </div>
-                
-                <div class="mapper-assignments">
-                    <label>Label Assignments (Drop Zones)</label>
-                    <div style="font-size:12px; color: #888; margin-bottom: 15px; border-left: 2px solid var(--accent-color); padding-left: 10px;">
-                        ⚙️ <b>How to create labels:</b> Add a name (e.g. <i>"Gymnastics"</i>) to the <b>Master Labels</b> box at the top to create a new bucket here.<br>
-                        💡 <b>To merge:</b> Put aliases (e.g. <i>"Benji"</i>) in <i>General Keywords</i>, then drag them into the <b>Benjamin</b> bucket below.
-                    </div>
-                    <div id="childBuckets" class="buckets-grid">
-                        <!-- Label buckets will be injected here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    <style>
-        .mapper-layout {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 30px;
-            background: rgba(0,0,0,0.3);
-            padding: 20px;
-            border: 1px solid var(--border-color);
-        }
-
-        .tag-container {
-            min-height: 150px;
-            padding: 15px;
-            background: #000;
-            border: 1px dashed var(--border-color);
+        .chip-pool {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            align-content: flex-start;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            min-height: 60px;
+            padding: 1rem;
+            background: #0e0e0e;
+            border: 1px dashed #333;
         }
 
-        .draggable-tag {
-            background: var(--accent-dim);
-            color: var(--accent-color);
-            border: 1px solid var(--accent-color);
-            padding: 4px 10px;
-            font-size: 13px;
+        .chip {
+            background: #222;
+            border: 1px solid #444;
+            padding: 6px 12px;
+            font-size: 0.8rem;
             cursor: grab;
             user-select: none;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .pool-tag {
-            background: rgba(0, 255, 255, 0.05);
+        .chip.ghost {
+            opacity: 0.4;
+            border-color: #00FFFF;
+            background: #0b0b0b;
         }
 
-        .delete-tag-btn {
-            color: var(--danger-color);
-            font-size: 18px;
+        .chip.ghost::after {
+            content: ' ✓';
+            color: #00FFFF;
             font-weight: bold;
+        }
+
+        .chip.dragging { opacity: 0.2; }
+
+        .delete-btn {
+            color: #ff0055;
             cursor: pointer;
-            opacity: 0.6;
-            transition: all 0.2s;
-            padding: 0 4px;
+            font-weight: bold;
+            font-size: 1.1rem;
             line-height: 1;
         }
 
-        .delete-tag-btn:hover {
-            opacity: 1;
-            transform: scale(1.2);
-            text-shadow: 0 0 8px var(--danger-color);
+        .bucket-drawer {
+            background: #111;
+            border: 1px solid #333;
+            margin-bottom: 0.5rem;
+            padding: 1rem;
+            transition: border-color 0.2s;
         }
 
-        .draggable-tag:active { cursor: grabbing; }
-        .draggable-tag.dragging { opacity: 0.5; border-style: dashed; }
-
-        .buckets-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
+        .bucket-drawer.ready-to-drop {
+            border-color: #00FFFF;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
         }
 
-        .child-bucket {
-            background: #1a1a20;
-            border: 1px solid var(--border-color);
-            padding: 15px;
-            min-height: 120px;
-            transition: all 0.3s;
+        .bucket-drawer.drag-over {
+            border-color: #00FFFF;
+            background: rgba(0, 255, 255, 0.05);
         }
 
-        .child-bucket.drag-over {
-            border-color: var(--success-color);
-            background: rgba(0, 255, 157, 0.05);
-            box-shadow: 0 0 15px rgba(0, 255, 157, 0.2);
-        }
-
-        .child-bucket h4 {
-            margin: 0 0 10px 0;
-            color: var(--accent-color);
-            font-size: 14px;
+        .bucket-drawer h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.75rem;
             text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #888;
         }
 
         .bucket-tags {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            min-height: 50px;
+            gap: 5px;
         }
 
-        .assigned-tag {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.2);
+        .assigned-chip {
+            background: #1a1a1a;
+            border: 1px solid #333;
             padding: 2px 8px;
-            font-size: 12px;
+            font-size: 0.7rem;
+            color: #888;
             display: flex;
             align-items: center;
             gap: 5px;
         }
 
-        .remove-tag {
-            color: var(--danger-color);
+        .remove-id { color: #ff0055; cursor: pointer; }
+
+        /* =========================================
+           5. SYNTH KEY (Save Button) & SYNC
+           ========================================= */
+        .bottom-actions {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .save-btn {
+            width: 100%;
+            background-color: #e0e0e0;
+            color: #000;
+            border: none;
+            padding: 1.2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
             cursor: pointer;
-            font-weight: bold;
+            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .save-btn:active {
+            transform: translateY(2px);
+            background-color: #ccc;
+        }
+
+        .sync-pulse {
+            text-align: center;
+            font-size: 0.65rem;
+            color: #444;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .sync-pulse:hover { color: #00FFFF; }
+
+        #saveStatus {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #00ff9d;
+            height: 15px;
         }
     </style>
+</head>
+<body>
 
-        <div class="action-bar">
-            <span id="saveStatus" style="align-self: center; color: var(--success-color); display: none;">Saved Successfully!</span>
-            <button type="button" class="nav-link" style="background:none; color:var(--accent-color); font-weight:bold;" onclick="triggerSync()" id="syncBtn">TRIGGER MANUAL SYNC</button>
-            <button type="button" class="primary" onclick="saveSettings()">Save Configuration</button>
+<div class="settings-card">
+    <a href="/dashboard" class="nav-link">Terminal</a>
+    
+    <header class="settings-header">
+        <h1 class="settings-title">Slate Configuration</h1>
+        <div class="serial-id">UNIT: ETL-01</div>
+    </header>
+
+    <form id="settingsForm">
+        <!-- Input Slots -->
+        <div class="input-group">
+            <label>Master Labels</label>
+            <div id="childrenTags" class="tag-display-area"></div>
+            <div class="input-slot">
+                <input type="text" id="childrenInput" placeholder="Add Subject...">
+                <button type="button" onclick="addTag('children')">ADD</button>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Year Groups</label>
+            <div id="year_groupsTags" class="tag-display-area"></div>
+            <div class="input-slot">
+                <input type="text" id="year_groupsInput" placeholder="Add Year...">
+                <button type="button" onclick="addTag('year_groups')">ADD</button>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Schools</label>
+            <div id="schoolsTags" class="tag-display-area"></div>
+            <div class="input-slot">
+                <input type="text" id="schoolsInput" placeholder="Add School...">
+                <button type="button" onclick="addTag('schools')">ADD</button>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Clubs</label>
+            <div id="clubsTags" class="tag-display-area"></div>
+            <div class="input-slot">
+                <input type="text" id="clubsInput" placeholder="Add Club...">
+                <button type="button" onclick="addTag('clubs')">ADD</button>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Keywords</label>
+            <div id="general_keywordsTags" class="tag-display-area"></div>
+            <div class="input-slot">
+                <input type="text" id="general_keywordsInput" placeholder="Add Keyword...">
+                <button type="button" onclick="addTag('general_keywords')">ADD</button>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Noise Filter</label>
+            <div id="exclude_keywordsTags" class="tag-display-area"></div>
+            <div class="input-slot">
+                <input type="text" id="exclude_keywordsInput" placeholder="Exclude...">
+                <button type="button" onclick="addTag('exclude_keywords')">ADD</button>
+            </div>
+        </div>
+
+        <!-- Stacked Tray Mapper -->
+        <div class="mapper-section">
+            <span class="mapper-label">Visual Label Mapper</span>
+            
+            <div class="chip-pool" id="keywordPool">
+                <!-- Keywords Cloud -->
+            </div>
+
+            <div id="childBuckets">
+                <!-- Drawer Buckets -->
+            </div>
+        </div>
+
+        <div class="bottom-actions">
+            <div id="saveStatus"></div>
+            <button type="button" class="save-btn" onclick="saveSettings()">Save Slate</button>
+            <div class="sync-pulse" onclick="triggerSync()" id="syncBtn">Manual Pulse Sync</div>
         </div>
     </form>
 </div>
 
 <script>
-    // --- Visual Mapper State ---
-    let currentMappings = {}; // e.g. { "Benjamin": ["Year 2"] }
-    let categoryData = {}; // Stores arrays for each category
+    let currentMappings = {};
+    let categoryData = {};
 
     function updateMapperPool() {
-        // Collect ALL keywords from the 5 search categories
         const ids = ['children', 'year_groups', 'schools', 'clubs', 'general_keywords'];
         let allKeywords = [];
-        ids.forEach(id => {
-            allKeywords = allKeywords.concat(categoryData[id] || []);
-        });
+        ids.forEach(id => { allKeywords = allKeywords.concat(categoryData[id] || []); });
 
-        // 2. Filter out keywords that are already assigned
-        const assignedKeywords = new Set();
+        const mapCounts = {};
         Object.values(currentMappings).forEach(keywords => {
-            keywords.forEach(k => assignedKeywords.add(k));
+            keywords.forEach(k => { mapCounts[k] = (mapCounts[k] || 0) + 1; });
         });
 
         const poolContainer = document.getElementById('keywordPool');
         poolContainer.innerHTML = '';
-        
-        // Deduplicate
-        const uniqueKeywords = [...new Set(allKeywords)].filter(k => !assignedKeywords.has(k));
+        const uniqueKeywords = [...new Set(allKeywords)];
 
         uniqueKeywords.forEach(keyword => {
+            const isGhost = (mapCounts[keyword] || 0) > 0;
+            
             const el = document.createElement('div');
-            el.className = 'draggable-tag pool-tag';
+            el.className = `chip ${isGhost ? 'ghost' : ''}`;
             el.innerHTML = `
-                <span class="tag-label">${keyword}</span>
-                <span class="delete-tag-btn" title="Purge from System" onclick="event.stopPropagation(); deleteKeywordFromSource('${keyword.replace(/'/g, "\\'")}')">×</span>
+                <span>${keyword}</span>
+                <span class="delete-btn" onclick="event.stopPropagation(); deleteKeywordFromSource('${keyword.replace(/'/g, "\\'")}')">×</span>
             `;
             el.draggable = true;
             
             el.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', keyword);
                 el.classList.add('dragging');
+                document.querySelectorAll('.bucket-drawer').forEach(b => b.classList.add('ready-to-drop'));
             });
-            el.addEventListener('dragend', () => el.classList.remove('dragging'));
+            el.addEventListener('dragend', () => {
+                el.classList.remove('dragging');
+                document.querySelectorAll('.bucket-drawer').forEach(b => b.classList.remove('ready-to-drop'));
+            });
             poolContainer.appendChild(el);
         });
     }
 
     function deleteKeywordFromSource(keyword) {
-        if (!confirm(`Permanently remove "${keyword}" from configuration?`)) return;
-        
-        const ids = ['children', 'year_groups', 'schools', 'clubs', 'general_keywords'];
-        ids.forEach(id => {
+        if (!confirm(`Purge "${keyword}"?`)) return;
+        ['children', 'year_groups', 'schools', 'clubs', 'general_keywords'].forEach(id => {
             if (categoryData[id]) {
                 categoryData[id] = categoryData[id].filter(k => k !== keyword);
                 renderCategoryTags(id);
             }
         });
-
-        // Also remove from any mappings
         Object.keys(currentMappings).forEach(label => {
             currentMappings[label] = currentMappings[label].filter(k => k !== keyword);
         });
-
         updateMapperPool();
         renderBuckets(categoryData['children'] || []);
     }
@@ -537,7 +464,6 @@
     function renderCategoryTags(category) {
         const container = document.getElementById(category + 'Tags');
         if (!container) return;
-        
         container.innerHTML = '';
         const items = categoryData[category] || [];
         const isDanger = category === 'exclude_keywords';
@@ -547,12 +473,10 @@
             tag.className = `category-tag ${isDanger ? 'danger' : ''}`;
             tag.innerHTML = `
                 <span>${value}</span>
-                <span class="delete-tag-btn" onclick="removeCategoryTag('${category}', '${value.replace(/'/g, "\\'")}')">×</span>
+                <span class="delete-btn" style="font-size:0.8rem; margin-left:5px" onclick="removeCategoryTag('${category}', '${value.replace(/'/g, "\\'")}')">×</span>
             `;
             container.appendChild(tag);
         });
-        
-        // After rendering category tags, refresh pool and buckets
         updateMapperPool();
         if (category === 'children') renderBuckets(items);
     }
@@ -561,7 +485,6 @@
         const input = document.getElementById(category + 'Input');
         const val = input.value.trim();
         if (!val) return;
-        
         if (!categoryData[category]) categoryData[category] = [];
         if (!categoryData[category].includes(val)) {
             categoryData[category].push(val);
@@ -572,54 +495,38 @@
 
     function removeCategoryTag(category, value) {
         categoryData[category] = categoryData[category].filter(v => v !== value);
-        
-        // Also clean up from mappings if it was a keyword
-        Object.keys(currentMappings).forEach(label => {
-            currentMappings[label] = currentMappings[label].filter(k => k !== value);
-        });
-
+        Object.keys(currentMappings).forEach(l => currentMappings[l] = currentMappings[l].filter(k => k !== value));
         renderCategoryTags(category);
     }
 
     function renderBuckets(labels) {
-        const grid = document.getElementById('childBuckets');
-        grid.innerHTML = '';
-
+        const container = document.getElementById('childBuckets');
+        container.innerHTML = '';
         labels.forEach(fullName => {
             const firstName = fullName.split(' ')[0];
             const div = document.createElement('div');
-            div.className = 'child-bucket';
+            div.className = 'bucket-drawer';
             div.innerHTML = `
                 <h4>${firstName}</h4>
-                <div class="bucket-tags" data-child="${firstName}"></div>
+                <div class="bucket-tags"></div>
             `;
-            
             const tagArea = div.querySelector('.bucket-tags');
             const items = currentMappings[firstName] || [];
-            
-            items.forEach(keyword => {
+            items.forEach(kw => {
                 const tag = document.createElement('div');
-                tag.className = 'assigned-tag';
-                tag.innerHTML = `
-                    ${keyword} <span class="remove-tag" onclick="removeMapping('${firstName}', '${keyword}')">×</span>
-                `;
+                tag.className = 'assigned-chip';
+                tag.innerHTML = `${kw} <span class="remove-id" onclick="removeMapping('${firstName}', '${kw}')">×</span>`;
                 tagArea.appendChild(tag);
             });
-
-            // Drop Listeners
-            div.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                div.classList.add('drag-over');
-            });
+            div.addEventListener('dragover', (e) => { e.preventDefault(); div.classList.add('drag-over'); });
             div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
             div.addEventListener('drop', (e) => {
                 e.preventDefault();
                 div.classList.remove('drag-over');
-                const keyword = e.dataTransfer.getData('text/plain');
-                if (keyword) addMapping(firstName, keyword);
+                const kw = e.dataTransfer.getData('text/plain');
+                if (kw) addMapping(firstName, kw);
             });
-
-            grid.appendChild(div);
+            container.appendChild(div);
         });
     }
 
@@ -638,57 +545,32 @@
         renderBuckets(categoryData['children'] || []);
     }
 
-    // Load Data
     async function loadData() {
         try {
-            const response = await fetch('/api/settings');
-            const data = await response.json();
-            
-            // Render Status
-            document.getElementById('lastRun').innerText = data.status.last_run_formatted;
-            document.getElementById('currentStatus').innerText = data.status.current_status;
-            document.getElementById('eventsCreated').innerText = data.status.events_created_session;
-            
-            // Initial State
-            const config = data.config;
-            const search = config.search_settings || {};
-            const logic = config.filtering_logic || {};
-            
+            const r = await fetch('/api/settings');
+            const d = await r.json();
+            const config = d.config;
             categoryData = {
-                children: search.children || [],
-                year_groups: search.year_groups || [],
-                schools: search.schools || [],
-                clubs: search.clubs || [],
-                general_keywords: search.general_keywords || [],
-                exclude_keywords: logic.exclude_keywords || [],
-                strict_override_keywords: logic.strict_override_keywords || []
+                children: config.search_settings.children || [],
+                year_groups: config.search_settings.year_groups || [],
+                schools: config.search_settings.schools || [],
+                clubs: config.search_settings.clubs || [],
+                general_keywords: config.search_settings.general_keywords || [],
+                exclude_keywords: config.filtering_logic.exclude_keywords || [],
+                strict_override_keywords: config.filtering_logic.strict_override_keywords || []
             };
-
             currentMappings = config.child_mappings || {};
-
-            // Render all categories
-            Object.keys(categoryData).forEach(cat => renderCategoryTags(cat));
-
-            // Set up keyboard listeners
             Object.keys(categoryData).forEach(cat => {
-                const input = document.getElementById(cat + 'Input');
-                input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addTag(cat);
-                    }
+                renderCategoryTags(cat);
+                document.getElementById(cat + 'Input').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); addTag(cat); }
                 });
             });
-            
-        } catch (e) {
-            console.error(e);
-            alert("Failed to load settings.");
-        }
+        } catch (e) { console.error(e); }
     }
 
-    // Save Data
     async function saveSettings() {
-        const newConfig = {
+        const body = JSON.stringify({
             search_settings: {
                 children: categoryData.children,
                 year_groups: categoryData.year_groups,
@@ -701,64 +583,32 @@
                 strict_override_keywords: categoryData.strict_override_keywords
             },
             child_mappings: currentMappings
-        };
-
+        });
         try {
-            const response = await fetch('/api/settings', {
+            const r = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newConfig)
+                body
             });
-            
-            if (response.ok) {
-                const status = document.getElementById('saveStatus');
-                status.style.display = 'block';
-                setTimeout(() => status.style.display = 'none', 3000);
-            } else {
-                alert("Failed to save.");
+            if (r.ok) {
+                const s = document.getElementById('saveStatus');
+                s.innerText = 'SLATE SYNCHRONIZED';
+                setTimeout(() => s.innerText = '', 3000);
             }
-        } catch (e) {
-            console.error(e);
-            alert("Error saving settings.");
-        }
+        } catch (e) { console.error(e); }
     }
 
     async function triggerSync() {
-        const btn = document.getElementById('syncBtn');
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = "RUNNING...";
-
+        const b = document.getElementById('syncBtn');
+        b.innerText = "PULSING...";
         try {
-            const response = await fetch('/api/trigger', { method: 'POST' });
-            const data = await response.json();
-            
-            if (response.status === 200) {
-                btn.innerText = "TRIGGERED!";
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.innerText = originalText;
-                }, 3000);
-            } else {
-                btn.innerText = "ALREADY RUNNING";
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.innerText = originalText;
-                }, 3000);
-            }
-        } catch (e) {
-            console.error(e);
-            btn.innerText = "ERROR";
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.innerText = originalText;
-            }, 3000);
-        }
+            const r = await fetch('/api/trigger', { method: 'POST' });
+            if (r.ok) b.innerText = "PULSE TRANSMITTED";
+            setTimeout(() => b.innerText = "Manual Pulse Sync", 3000);
+        } catch (e) { b.innerText = "ERROR"; }
     }
 
-    // Initial Load
     loadData();
 </script>
-
 </body>
 </html>
