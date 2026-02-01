@@ -211,7 +211,7 @@
         
         <div class="sidebar">
             <div>
-                <span class="unit-badge">UNIT: ETL-01 // OPERATIONAL</span>
+                <img src="/static/images/hero-branding.png" alt="Logistics Branding" style="width: 100%; height: auto; border-radius: 12px; margin-bottom: 2.5rem; display: block; opacity: 0.9;">
                 <h1 class="brand-title">The<br>Social ETL</h1>
                 <p style="font-size:0.9rem; color:#666; margin-top:1.5rem; line-height:1.6;">
                     Live operational terminal for identification and extraction.
@@ -293,7 +293,10 @@
                         card.innerHTML = `
                             <div class="pending-info">
                                 <h4>${title}</h4>
-                                <div class="pending-meta">${dateStr} // ${event.source || 'N/A'}</div>
+                                <div class="pending-meta">
+                                    ${dateStr} // ${event.source || 'N/A'}
+                                    ${event.source_url ? `// <a href="${event.source_url}" target="_blank" style="color: #00BFFF; text-decoration: none; font-weight: bold;">[ SOURCE ]</a>` : ''}
+                                </div>
                             </div>
                             <div class="pending-actions">
                                 <button class="btn btn-approve btn-sm" onclick="approveEvent('${event.id}')">APPROVE</button>
@@ -416,6 +419,9 @@
                         });
                     } else {
                         eventList.innerHTML = '<li style="color:#999; font-size:0.85rem;">> No operational data detected.</li>';
+                    }
+                    if (document.getElementById('logistics-panel').style.display !== 'none') {
+                        fetchPendingEvents();
                     }
                 })
                 .catch(() => {
