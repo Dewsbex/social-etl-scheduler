@@ -630,6 +630,7 @@
     }
 
     async function saveSettings() {
+        playHeroVideo();
         const body = JSON.stringify({
             search_settings: {
                 children: categoryData.children,
@@ -667,6 +668,7 @@
         const b = document.getElementById('syncBtn');
         const originalText = b.innerText;
         b.innerText = "PULSING...";
+        playHeroVideo();
         try {
             const r = await fetch('/api/trigger', { method: 'POST' });
             if (r.ok) b.innerText = "PULSE TRANSMITTED";
