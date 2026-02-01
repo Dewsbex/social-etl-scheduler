@@ -392,17 +392,21 @@
             background: rgba(0, 255, 255, 0.05);
         }
 
-        .delete-tag {
+        .delete-tag-btn {
             color: var(--danger-color);
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            opacity: 0.5;
-            transition: opacity 0.2s;
+            opacity: 0.6;
+            transition: all 0.2s;
+            padding: 0 4px;
+            line-height: 1;
         }
 
-        .delete-tag:hover {
+        .delete-tag-btn:hover {
             opacity: 1;
+            transform: scale(1.2);
+            text-shadow: 0 0 8px var(--danger-color);
         }
 
         .draggable-tag:active { cursor: grabbing; }
@@ -497,7 +501,7 @@
             el.className = 'draggable-tag pool-tag';
             el.innerHTML = `
                 <span class="tag-label">${keyword}</span>
-                <span class="delete-tag" onclick="deleteKeywordFromSource('${keyword.replace(/'/g, "\\'")}')">×</span>
+                <span class="delete-tag-btn" title="Purge from System" onclick="event.stopPropagation(); deleteKeywordFromSource('${keyword.replace(/'/g, "\\'")}')">×</span>
             `;
             el.draggable = true;
             
@@ -543,7 +547,7 @@
             tag.className = `category-tag ${isDanger ? 'danger' : ''}`;
             tag.innerHTML = `
                 <span>${value}</span>
-                <span class="delete-tag" onclick="removeCategoryTag('${category}', '${value.replace(/'/g, "\\'")}')">×</span>
+                <span class="delete-tag-btn" onclick="removeCategoryTag('${category}', '${value.replace(/'/g, "\\'")}')">×</span>
             `;
             container.appendChild(tag);
         });
