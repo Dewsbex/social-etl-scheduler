@@ -11,19 +11,26 @@
            1. THE LAB ENVIRONMENT (Background)
            ========================================= */
         body {
-            /* THE BURNISHED DAWN GRADIENT */
-            /* Matches Main Site: Antique Brass -> Deep Azure */
-            background: linear-gradient(135deg, rgba(181, 139, 0, 0.12) 0%, rgba(0, 119, 190, 0.12) 100%);
+            /* THE CELESTIAL GRADIENT (Blue -> Gold) */
+            /* Light Source (Top Left): Signature Blue (#00BFFF) at 8% opacity */
+            /* Warmth (Bottom Right): Champagne Gold (#FFD700) at 8% opacity */
+            background: linear-gradient(135deg, rgba(0, 191, 255, 0.08) 0%, rgba(255, 215, 0, 0.08) 100%);
             
+            /* Ensure a clean white base behind the transparency */
+            background-color: #ffffff;
+            
+            /* Locks the gradient in place while scrolling */
             background-attachment: fixed;
             
             color: #111;
             font-family: 'Inter', sans-serif;
             margin: 0;
+            /* Maintain the laboratory spacing */
             padding: 60px;
             min-height: 100vh;
             box-sizing: border-box;
             
+            /* PRO FINISH: Crisp typography */
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
