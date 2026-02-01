@@ -1,232 +1,272 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Socratic Snowman Scheduler</title>
+    <title>The Social ETL // Terminal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
-</head>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <style>
+        /* =========================================
+           1. VIBE LAB ENVIRONMENT (Background)
+           ========================================= */
+        body {
+            background-color: #F0F0F0;
+            color: #111;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 40px;
+            min-height: 100vh;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
 
+        #canvas-orb {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Behind everything */
+            opacity: 0.8;
+            pointer-events: none;
+        }
+
+        /* =========================================
+           2. LAYOUT ARCHITECTURE
+           ========================================= */
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        @media (max-width: 1000px) {
+            .dashboard-container { grid-template-columns: 1fr; gap: 24px; padding: 10px; }
+        }
+
+        /* LEFT COLUMN: The "Manifesto" Sidebar */
+        .sidebar {
+            position: sticky;
+            top: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .brand-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 3.5rem;
+            font-weight: 600;
+            font-style: italic;
+            line-height: 0.95;
+            letter-spacing: -0.03em;
+            margin: 0;
+            color: #000;
+        }
+
+        .unit-badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: #666;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        /* RIGHT COLUMN: The Cards */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+        }
+
+        .vibe-card {
+            background: #FFFFFF;
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.06);
+            border: 1px solid rgba(0,0,0,0.02);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #999;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+
+        /* =========================================
+           3. TERMINAL & LISTS
+           ========================================= */
+        .terminal-body {
+            background: #FAFAFA;
+            border: 1px solid #EEE;
+            border-radius: 16px;
+            padding: 1.5rem;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            color: #444;
+        }
+
+        .log-entry { margin-bottom: 8px; border-bottom: 1px solid #F0F0F0; padding-bottom: 4px; }
+
+        .event-list { list-style: none; padding: 0; margin: 0; }
+        .event-item {
+            padding: 1rem;
+            border-bottom: 1px solid #EEE;
+            transition: background 0.2s;
+        }
+        .event-item:last-child { border-bottom: none; }
+        .event-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem; }
+        .event-title { font-weight: 600; color: #000; }
+        .event-tag { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: #00BFFF; }
+        .event-time { font-size: 0.8rem; color: #888; margin-bottom: 0.5rem; }
+        .event-desc { font-size: 0.85rem; color: #666; line-height: 1.4; }
+
+        /* PENDING DRAWER */
+        .pending-drawer {
+            margin-top: 2rem;
+        }
+        .pending-card {
+            background: #FFF;
+            border: 1px solid #EEE;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .pending-info h4 { margin: 0; font-size: 0.95rem; }
+        .pending-meta { font-size: 0.75rem; color: #999; margin-top: 4px; }
+        .pending-actions { display: flex; gap: 8px; }
+
+        /* =========================================
+           4. BUTTONS & ACTIONS
+           ========================================= */
+        .btn {
+            border: none;
+            border-radius: 12px;
+            padding: 0.8rem 1.5rem;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #111; color: #FFF; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .btn-outline { background: transparent; border: 1px solid #DDD; color: #666; }
+        .btn-outline:hover { border-color: #000; color: #000; }
+        .btn-approve { background: #00BFFF; color: #FFF; }
+        .btn-reject { background: #FFF; border: 1px solid #FEE; color: #FF0055; }
+
+        .status-indicator {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        .status-running { color: #00BFFF; font-weight: bold; }
+
+        nav { display: flex; gap: 1rem; margin-top: 1rem; }
+        nav a { font-size: 0.7rem; text-transform: uppercase; color: #999; text-decoration: none; letter-spacing: 0.1em; }
+        nav a:hover { color: #000; }
+    </style>
+</head>
 <body>
 
-    <!-- 3D Background -->
     <div id="canvas-orb"></div>
 
-    <!-- Logistics Terminal Overlay -->
-    <div id="logistics-terminal">
-        <div class="terminal-header">
-            <span>// LOGISTICS OFFICER TERMINAL //</span>
-            <button class="close-btn" onclick="toggleTerminal()">[X]</button>
-        </div>
-        <div class="terminal-content">
-            <div class="pending-list" id="pending-list">
-                <div class="loading-text">> SCANNING FOR PENDING EVENTS...</div>
+    <div class="dashboard-container">
+        
+        <div class="sidebar">
+            <div>
+                <span class="unit-badge">UNIT: ETL-01 // OPERATIONAL</span>
+                <h1 class="brand-title">The<br>Social ETL</h1>
+                <p style="font-size:0.9rem; color:#666; margin-top:1.5rem; line-height:1.6;">
+                    Live operational terminal for identification and extraction.
+                </p>
+                <nav>
+                    <a href="/">Settings</a>
+                    <a href="/debug">Debug</a>
+                </nav>
+            </div>
+
+            <div class="vibe-card">
+                <span class="card-label">Management</span>
+                <span id="api-status-label" class="status-indicator">STATUS: <span id="api-status">INITIALIZING</span></span>
+                <button id="sync-btn" class="btn btn-primary" onclick="triggerSync()">INITIATE SYNC</button>
+                <button class="btn btn-outline" style="margin-top:10px;" onclick="toggleLogistics()">LOGISTICS MODULE</button>
             </div>
         </div>
-        <div class="terminal-actions">
-            <button class="cyber-btn small" onclick="fetchPendingEvents()">[ REFRESH ]</button>
-            <button class="cyber-btn small" onclick="triggerScan()">[ TRIGGER SCAN ]</button>
-        </div>
-    </div>
 
-    <!-- UI Overlay -->
-    <div class="ui-overlay">
-        <header class="top-bar">
-            <h1 class="glitch-text" data-text="SOCIAL ETL SCHEDULER">SOCIAL ETL SCHEDULER</h1>
-            <div class="header-right">
-                <a href="/" class="cyber-btn small" style="text-decoration:none;">[ SETTINGS ]</a>
-                <button class="cyber-btn small" onclick="toggleTerminal()">[ LOGISTICS ]</button>
-                <div class="status-panel">
-                     STATUS: <span id="api-status" class="status-indicator">INITIALIZING</span>
+        <div class="cards-grid">
+            
+            <div class="vibe-card" style="grid-column: 1 / -1; display:none;" id="logistics-panel">
+                <span class="card-label">Pending Approval (Logistics)</span>
+                <div id="pending-list">
+                    <p style="font-size:0.85rem; color:#999;">Scanning for fragment approval...</p>
                 </div>
             </div>
-        </header>
 
-        <main class="dashboard-grid">
-            <!-- Left: Terminal Logs -->
-            <section class="terminal-panel">
-                <div class="panel-header">>> SYSTEM LOGS</div>
-                <div id="log-container" class="terminal-body">
-                    <div class="log-entry">> Initializing Socratic Core...</div>
-                    <div class="log-entry">> Establishing Uplink...</div>
-                </div>
-            </section>
-
-            <!-- Right: Controls & Events -->
-            <section class="control-panel">
-                <div class="panel-header">>> FOUND EVENTS</div>
-                <div id="events-container" class="events-body">
-                    <ul id="event-list">
-                        <!-- Events populated here -->
+            <div class="vibe-card">
+                <span class="card-label">Recent Findings</span>
+                <div class="event-body">
+                    <ul id="event-list" class="event-list">
+                        <li style="color:#999; font-size:0.85rem;">Listening for data events...</li>
                     </ul>
                 </div>
+            </div>
 
-                <div class="action-area">
-                    <button id="sync-btn" class="cyber-btn" onclick="triggerSync()">
-                        <span class="btn-content">[ INITIATE SYNC ]</span>
-                        <span class="btn-glitch"></span>
-                    </button>
+            <div class="vibe-card">
+                <span class="card-label">Activity Logs</span>
+                <div id="log-container" class="terminal-body">
+                    <div class="log-entry">> Initializing Vibe Terminal...</div>
                 </div>
-            </section>
-        </main>
+            </div>
+
+        </div>
     </div>
 
-    <!-- Styles -->
-    <style>
-        /* Logistics Terminal Styles */
-        #logistics-terminal {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 80vw;
-            height: 70vh;
-            background: rgba(0, 10, 20, 0.95);
-            border: 1px solid #00ffff;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
-            z-index: 1000;
-            display: none; /* Hidden by default */
-            flex-direction: column;
-            color: #00ffff;
-            font-family: 'Share Tech Mono', monospace;
-            border-radius: 8px;
-            backdrop-filter: blur(10px);
-        }
-
-        .terminal-header {
-            background: rgba(0, 255, 255, 0.1);
-            padding: 10px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #00ffff;
-            font-size: 1.2em;
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
-            color: #ff0055;
-            cursor: pointer;
-            font-size: 1.2em;
-            font-family: inherit;
-        }
-
-        .terminal-content {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-        }
-
-        .pending-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .event-card {
-            background: rgba(0, 255, 255, 0.05);
-            border: 1px solid rgba(0, 255, 255, 0.3);
-            padding: 15px;
-            border-radius: 4px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
-
-        .event-info h3 {
-            margin: 0 0 5px 0;
-            color: #fff;
-        }
-
-        .event-meta {
-            font-size: 0.9em;
-            color: #aaa;
-            margin-bottom: 10px;
-        }
-
-        .event-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .approve-btn {
-            background: rgba(0, 255, 0, 0.2);
-            border: 1px solid #00ff00;
-            color: #00ff00;
-            padding: 5px 10px;
-            cursor: pointer;
-            font-family: inherit;
-        }
-        
-        .reject-btn {
-            background: rgba(255, 0, 0, 0.2);
-            border: 1px solid #ff0000;
-            color: #ff0000;
-            padding: 5px 10px;
-            cursor: pointer;
-            font-family: inherit;
-        }
-
-        .terminal-actions {
-            padding: 15px;
-            border-top: 1px solid rgba(0, 255, 255, 0.3);
-            display: flex;
-            justify-content: flex-end;
-            gap: 15px;
-        }
-
-        .cyber-btn.small {
-            font-size: 0.8em;
-            padding: 5px 15px;
-        }
-        
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-    </style>
-
-    <!-- Application Logic -->
     <script>
-        // --- Logistics Terminal Logic ---
-        function toggleTerminal() {
-            const term = document.getElementById('logistics-terminal');
-            if (term.style.display === 'flex') {
-                term.style.display = 'none';
-            } else {
-                term.style.display = 'flex';
+        // --- Dashboard Logic ---
+        function toggleLogistics() {
+            const panel = document.getElementById('logistics-panel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'flex';
                 fetchPendingEvents();
+            } else {
+                panel.style.display = 'none';
             }
-        }
-
-        function triggerScan() {
-             addLog("Manually Triggering Scan...");
-             triggerSync(); // Reuse existing sync
         }
 
         function fetchPendingEvents() {
             const list = document.getElementById('pending-list');
-            list.innerHTML = '<div class="loading-text">> REFRESHING DATA...</div>';
-
             fetch('/api/events/pending')
                 .then(r => r.json())
                 .then(events => {
                     list.innerHTML = '';
                     if (events.length === 0) {
-                        list.innerHTML = '<div class="loading-text">> NO PENDING EVENTS AWAITING APPROVAL.</div>';
+                        list.innerHTML = '<p style="font-size:0.85rem; color:#999;">No pending events awaiting approval.</p>';
                         return;
                     }
-
                     events.forEach(event => {
-                        const card = document.createElement('div');
-                        card.className = 'event-card';
-                        
-                        // Parse safely
                         const title = event.event_title || event.summary || "Unknown Event";
                         const rawStart = event.start ? event.start.dateTime : (event.start_time || null);
                         let dateStr = "TBD";
@@ -234,38 +274,22 @@
                             const d = new Date(rawStart);
                             dateStr = !isNaN(d) ? d.toLocaleString() : rawStart;
                         }
-                        const subjects = event.subjects ? event.subjects.join(', ') : '';
-                        const desc = event.description || "";
-                        const source = event.source || "Unknown";
-                        const sourceUrl = event.source_url || event.gmail_url || "";
-
+                        const card = document.createElement('div');
+                        card.className = 'pending-card';
                         card.innerHTML = `
-                            <div class="event-info">
-                                <h3>${title} 
-                                    ${sourceUrl ? 
-                                        `<a href="${sourceUrl}" target="_blank" style="font-size:0.7em; color:#00ffff; text-decoration:underline; cursor:pointer; pointer-events:all;">[${source.toUpperCase()}]</a>` : 
-                                        `<span style="font-size:0.7em; color:#00ffff">[${source.toUpperCase()}]</span>`
-                                    }
-                                </h3>
-                                <div class="event-meta">
-                                    Time: ${dateStr}<br>
-                                    Subjects: ${subjects}<br>
-                                    Location: ${event.location || 'N/A'}
-                                </div>
-                                <div class="event-desc">${desc.substring(0, 100)}${desc.length > 100 ? '...' : ''}</div>
+                            <div class="pending-info">
+                                <h4>${title}</h4>
+                                <div class="pending-meta">${dateStr} // ${event.source || 'N/A'}</div>
                             </div>
-                            <div class="event-actions">
-                                <button class="approve-btn" onclick="approveEvent('${event.id}')">APPROVE</button>
-                                <button class="reject-btn" onclick="rejectEvent('${event.id}')">REJECT</button>
+                            <div class="pending-actions">
+                                <button class="btn btn-approve btn-sm" onclick="approveEvent('${event.id}')">APPROVE</button>
+                                <button class="btn btn-reject btn-sm" onclick="rejectEvent('${event.id}')">REJECT</button>
                             </div>
                         `;
                         list.appendChild(card);
                     });
                 })
-                .catch(err => {
-                    list.innerHTML = '<div class="loading-text">> ERROR FETCHING EVENTS.</div>';
-                    console.error(err);
-                });
+                .catch(err => console.error("Pending Fetch Error:", err));
         }
 
         function approveEvent(id) {
@@ -278,7 +302,7 @@
             .then(r => r.json())
             .then(data => {
                 addLog(data.message);
-                fetchPendingEvents(); // Refresh list
+                fetchPendingEvents();
             })
             .catch(err => addLog("Approval Error: " + err));
         }
@@ -294,35 +318,31 @@
             .then(r => r.json())
             .then(data => {
                 addLog(data.message);
-                fetchPendingEvents(); // Refresh list
+                fetchPendingEvents();
             })
             .catch(err => addLog("Rejection Error: " + err));
         }
 
-        // --- API Interaction Logic ---
-
-
         function triggerSync() {
             const btn = document.getElementById('sync-btn');
-            const originalText = btn.innerHTML;
+            const originalText = btn.innerText;
             btn.disabled = true;
-            btn.innerHTML = '<span class="btn-content">[ SYNCING... ]</span>';
-
+            btn.innerText = "SYNCING...";
             addLog("Manual Sync Initiated...");
 
             fetch('/api/trigger', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
-                    addLog("Response: " + data.message);
+                    addLog("Sync started: " + data.message);
                     setTimeout(() => {
                         btn.disabled = false;
-                        btn.innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
+                        btn.innerText = originalText;
                     }, 2000);
                 })
                 .catch(err => {
                     addLog("Error: " + err);
                     btn.disabled = false;
-                    btn.innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
+                    btn.innerText = originalText;
                 });
         }
 
@@ -338,194 +358,110 @@
             fetch('/api/status')
                 .then(r => r.json())
                 .then(data => {
-                    // Update Logs
                     const container = document.getElementById('log-container');
                     container.innerHTML = '';
-                    if (data.logs.length === 0) {
-                        container.innerHTML = '<div class="log-entry">> No local logs.</div>';
-                    } else {
+                    if (data.logs && data.logs.length > 0) {
                         data.logs.forEach((log) => {
                             const div = document.createElement('div');
                             div.className = 'log-entry';
                             div.innerHTML = "> " + log;
                             container.appendChild(div);
                         });
+                    } else {
+                        container.innerHTML = '<div class="log-entry">> No system logs.</div>';
                     }
 
-                    // Update Status
                     const statusEl = document.getElementById('api-status');
                     statusEl.innerText = data.status;
+                    statusEl.className = data.status === "RUNNING" ? "status-running" : "";
+                    
+                    document.getElementById('sync-btn').disabled = data.status === "RUNNING";
                     if (data.status === "RUNNING") {
-                        statusEl.className = "status-indicator status-running";
-                        document.getElementById('sync-btn').disabled = true;
-                        document.getElementById('sync-btn').innerHTML = '<span class="btn-content">[ RUNNING... ]</span>';
+                        document.getElementById('sync-btn').innerText = "RUNNING...";
                     } else {
-                        statusEl.className = "status-indicator status-idle";
-                        if (document.getElementById('sync-btn').innerText.includes("RUNNING")) {
-                            document.getElementById('sync-btn').disabled = false;
-                            document.getElementById('sync-btn').innerHTML = '<span class="btn-content">[ INITIATE SYNC ]</span>';
-                        }
+                        document.getElementById('sync-btn').innerText = "INITIATE SYNC";
                     }
 
-                    // Update Events
                     const eventList = document.getElementById('event-list');
                     eventList.innerHTML = '';
-
                     if (data.events && data.events.length > 0) {
                         data.events.forEach(event => {
                             const li = document.createElement('li');
                             li.className = 'event-item';
-
                             const subjects = event.subjects ? event.subjects.join(', ') : 'GENERAL';
-                            const time = event.start_time ? new Date(event.start_time).toLocaleString() : 'TBD';
-
+                            const timeStr = event.start_time ? new Date(event.start_time).toLocaleString() : 'TBD';
                             li.innerHTML = `
                                 <div class="event-header">
                                     <span class="event-title">${event.event_title}</span>
                                     <span class="event-tag">${subjects}</span>
                                 </div>
-                                <div class="event-time">${time}</div>
-                                <div class="event-desc">
-                                    ${event.description || ''}
-                                </div>
+                                <div class="event-time">${timeStr}</div>
+                                <div class="event-desc">${event.description || ''}</div>
                             `;
                             eventList.appendChild(li);
                         });
                     } else {
-                        eventList.innerHTML = '<li class="event-placeholder">> NO DATA FRAGMENTS DETECTED</li>';
+                        eventList.innerHTML = '<li style="color:#999; font-size:0.85rem;">> No operational data detected.</li>';
                     }
                 })
                 .catch(() => {
-                    document.getElementById('api-status').innerText = "DISCONNECTED";
-                    document.getElementById('api-status').className = "status-indicator status-offline";
+                    document.getElementById('api-status').innerText = "OFFLINE";
+                    document.getElementById('api-status').style.color = "#FF0055";
                 });
-
-            setTimeout(fetchLogs, 2000);
+            setTimeout(fetchLogs, 5000);
         }
 
-        // Start Polling
         fetchLogs();
     </script>
 
-    <!-- 3D Visualization Logic -->
+    <!-- 3D Visualization Logic (ORB) -->
     <script>
-        /**
-         * Initialize Socratic Snowman Orb
-         */
         function initSnowmanOrb(containerId) {
             const container = document.getElementById(containerId);
             if (!container) return;
-            // 1. Scene Setup
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(24, container.clientWidth / container.clientHeight, 0.1, 100);
             camera.position.z = 13;
             const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, physicallyCorrectLights: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             container.appendChild(renderer.domElement);
+            
             const resize = () => {
-                const w = container.clientWidth;
-                const h = container.clientHeight;
-                renderer.setSize(w, h);
-                camera.aspect = w / h;
+                renderer.setSize(container.clientWidth, container.clientHeight);
+                camera.aspect = container.clientWidth / container.clientHeight;
                 camera.updateProjectionMatrix();
             };
             window.addEventListener('resize', resize);
-            resize();
-            // 2. Lighting
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const point1 = new THREE.PointLight(0xffeedd, 1.2); point1.position.set(5, 5, 5); scene.add(point1);
-            const point2 = new THREE.PointLight(0xddddff, 0.8); point2.position.set(-5, 5, 5); scene.add(point2);
-            const rim = new THREE.PointLight(0xffffff, 1.5); rim.position.set(0, 5, -5); scene.add(rim);
-            // 3. Object Group
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const point1 = new THREE.PointLight(0xffeedd, 1); point1.position.set(5, 5, 5); scene.add(point1);
+            const point2 = new THREE.PointLight(0xddddff, 0.5); point2.position.set(-5, 5, 5); scene.add(point2);
+            
             const group = new THREE.Group();
             scene.add(group);
-            // Helpers
+
             const pNoise = (x, y, z) => Math.sin(x * 3.2 + Math.cos(y * 2.1)) * Math.cos(z * 1.8 + Math.sin(x * 1.5));
-            const createSnowTexture = () => {
-                const size = 512; const canvas = document.createElement('canvas');
-                canvas.width = size; canvas.height = size;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#cccccc'; ctx.fillRect(0, 0, size, size);
-                for (let i = 0; i < 8000; i++) {
-                    const x = Math.random() * size; const y = Math.random() * size; const r = Math.random() * 1.5;
-                    ctx.fillStyle = Math.random() > 0.5 ? '#ffffff' : '#aaaaaa';
-                    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-                }
-                return new THREE.CanvasTexture(canvas);
-            };
-            // Body
-            const bodyGeo = new THREE.SphereGeometry(1.5, 128, 128);
+            const bodyGeo = new THREE.SphereGeometry(1.5, 64, 64);
             const posAttribute = bodyGeo.attributes.position;
             const vertex = new THREE.Vector3();
             for (let i = 0; i < posAttribute.count; i++) {
                 vertex.fromBufferAttribute(posAttribute, i);
                 const n = pNoise(vertex.x, vertex.y, vertex.z);
-                vertex.multiplyScalar(1.0 + (n * 0.08));
+                vertex.multiplyScalar(1.0 + (n * 0.05));
                 posAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
             }
             bodyGeo.computeVertexNormals();
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, bumpMap: createSnowTexture(), bumpScale: 0.12 });
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0 });
             group.add(new THREE.Mesh(bodyGeo, bodyMat));
-            // Horns
-            const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a3c31, roughness: 1.0 });
-            const createTwig = (length, thickness, depth) => {
-                if (depth <= 0) return new THREE.Group();
-                const tGroup = new THREE.Group();
-                const geo = new THREE.CylinderGeometry(thickness * 0.7, thickness, length, 5);
-                geo.translate(0, length / 2, 0);
-                const mesh = new THREE.Mesh(geo, woodMat);
-                mesh.rotation.z = (Math.random() - 0.5) * 0.2; mesh.rotation.x = (Math.random() - 0.5) * 0.2;
-                tGroup.add(mesh);
-                if (depth > 1) {
-                    const num = 1 + Math.floor(Math.random() * 2);
-                    for (let i = 0; i < num; i++) {
-                        const s = createTwig(length * 0.6, thickness * 0.7, depth - 1);
-                        s.position.y = length * (0.4 + Math.random() * 0.5);
-                        s.rotation.z = (Math.random() - 0.5) * 1.5; s.rotation.y = (Math.random() - 0.5) * 2.0;
-                        tGroup.add(s);
-                    }
-                }
-                return tGroup;
-            };
-            const h1 = createTwig(1.0, 0.08, 3); h1.position.set(-0.7, 1.1, 0); h1.rotation.z = 0.5; group.add(h1);
-            const h2 = createTwig(0.9, 0.09, 3); h2.position.set(0.7, 1.1, 0); h2.rotation.z = -0.5; group.add(h2);
-            // Eyes
-            const createButton = (c) => {
-                const b = new THREE.Group();
-                const mat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.4, metalness: 0.1 });
-                const rim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 16, 32), mat); rim.position.z = 0.03; b.add(rim);
-                const base = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.05, 32), mat); base.rotation.x = Math.PI / 2; b.add(base);
-                const blk = new THREE.MeshBasicMaterial({ color: 0x000000 });
-                for (let x = -1; x <= 1; x += 2) for (let y = -1; y <= 1; y += 2) {
-                    const h = new THREE.Mesh(new THREE.CircleGeometry(0.015, 8), blk); h.position.set(x * 0.04, y * 0.04, 0.055); b.add(h);
-                }
-                return b;
-            };
-            const eL = createButton(0x003366); eL.position.set(-0.4, 0.2, 1.65); eL.lookAt(0, 0, 5); group.add(eL);
-            const eR = createButton(0x006400); eR.position.set(0.4, 0.2, 1.65); eR.lookAt(0, 0, 5); group.add(eR);
-            // Nose
-            const cGeo = new THREE.ConeGeometry(0.12, 0.8, 16); cGeo.translate(0, 0.4, 0); cGeo.rotateX(Math.PI / 2);
-            const nose = new THREE.Mesh(cGeo, new THREE.MeshStandardMaterial({ color: 0xFF6600, roughness: 0.6 }));
-            nose.position.set(0, 0, 1.6); group.add(nose);
-            // Mouth
-            const sMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
-            for (let i = 0; i < 6; i++) {
-                const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.04 + Math.random() * 0.04, 0), sMat);
-                const a = Math.PI + (i - 2.5) * 0.35;
-                s.position.set(Math.sin(a) * 0.6, -0.5 + Math.cos(a) * 0.25, 1.35);
-                s.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-                group.add(s);
-            }
-            // Animation
+
             let mX = 0, mY = 0;
             document.addEventListener('mousemove', (e) => { mX = (e.clientX / window.innerWidth) * 2 - 1; mY = -(e.clientY / window.innerHeight) * 2 + 1; });
+
             const animate = () => {
                 requestAnimationFrame(animate);
-                group.position.y = -0.4 + Math.sin(Date.now() * 0.0015) * 0.05;
-                group.rotation.y += (mX * 0.8 - group.rotation.y) * 0.1;
-                group.rotation.x += (-mY * 0.7 - group.rotation.x) * 0.1;
+                group.position.y = Math.sin(Date.now() * 0.001) * 0.1;
+                group.rotation.y += (mX * 0.5 - group.rotation.y) * 0.05;
+                group.rotation.x += (-mY * 0.5 - group.rotation.x) * 0.05;
                 renderer.render(scene, camera);
             };
             animate();
@@ -533,5 +469,4 @@
         window.addEventListener('load', () => initSnowmanOrb('canvas-orb'));
     </script>
 </body>
-
 </html>
