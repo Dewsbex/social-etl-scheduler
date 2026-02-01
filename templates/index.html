@@ -15,12 +15,33 @@
     <!-- 3D Background -->
     <div id="canvas-orb"></div>
 
+    <!-- Logistics Terminal Overlay -->
+    <div id="logistics-terminal">
+        <div class="terminal-header">
+            <span>// LOGISTICS OFFICER TERMINAL //</span>
+            <button class="close-btn" onclick="toggleTerminal()">[X]</button>
+        </div>
+        <div class="terminal-content">
+            <div class="pending-list" id="pending-list">
+                <div class="loading-text">> SCANNING FOR PENDING EVENTS...</div>
+            </div>
+        </div>
+        <div class="terminal-actions">
+            <button class="cyber-btn small" onclick="fetchPendingEvents()">[ REFRESH ]</button>
+            <button class="cyber-btn small" onclick="triggerScan()">[ TRIGGER SCAN ]</button>
+        </div>
+    </div>
+
     <!-- UI Overlay -->
     <div class="ui-overlay">
         <header class="top-bar">
             <h1 class="glitch-text" data-text="SOCIAL ETL SCHEDULER">SOCIAL ETL SCHEDULER</h1>
-            <div class="status-panel">
-                STATUS: <span id="api-status" class="status-indicator">INITIALIZING</span>
+            <div class="header-right">
+                <a href="/settings" class="cyber-btn small" style="text-decoration:none;">[ SETTINGS ]</a>
+                <button class="cyber-btn small" onclick="toggleTerminal()">[ LOGISTICS ]</button>
+                <div class="status-panel">
+                     STATUS: <span id="api-status" class="status-indicator">INITIALIZING</span>
+                </div>
             </div>
         </header>
 
@@ -53,9 +74,233 @@
         </main>
     </div>
 
+    <!-- Styles -->
+    <style>
+        /* Logistics Terminal Styles */
+        #logistics-terminal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vw;
+            height: 70vh;
+            background: rgba(0, 10, 20, 0.95);
+            border: 1px solid #00ffff;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            color: #00ffff;
+            font-family: 'Share Tech Mono', monospace;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .terminal-header {
+            background: rgba(0, 255, 255, 0.1);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #00ffff;
+            font-size: 1.2em;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #ff0055;
+            cursor: pointer;
+            font-size: 1.2em;
+            font-family: inherit;
+        }
+
+        .terminal-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .pending-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .event-card {
+            background: rgba(0, 255, 255, 0.05);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            padding: 15px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .event-info h3 {
+            margin: 0 0 5px 0;
+            color: #fff;
+        }
+
+        .event-meta {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 10px;
+        }
+
+        .event-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .approve-btn {
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        
+        .reject-btn {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid #ff0000;
+            color: #ff0000;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .terminal-actions {
+            padding: 15px;
+            border-top: 1px solid rgba(0, 255, 255, 0.3);
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+
+        .cyber-btn.small {
+            font-size: 0.8em;
+            padding: 5px 15px;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+    </style>
+
     <!-- Application Logic -->
     <script>
+        // --- Logistics Terminal Logic ---
+        function toggleTerminal() {
+            const term = document.getElementById('logistics-terminal');
+            if (term.style.display === 'flex') {
+                term.style.display = 'none';
+            } else {
+                term.style.display = 'flex';
+                fetchPendingEvents();
+            }
+        }
+
+        function triggerScan() {
+             addLog("Manually Triggering Scan...");
+             triggerSync(); // Reuse existing sync
+        }
+
+        function fetchPendingEvents() {
+            const list = document.getElementById('pending-list');
+            list.innerHTML = '<div class="loading-text">> REFRESHING DATA...</div>';
+
+            fetch('/api/events/pending')
+                .then(r => r.json())
+                .then(events => {
+                    list.innerHTML = '';
+                    if (events.length === 0) {
+                        list.innerHTML = '<div class="loading-text">> NO PENDING EVENTS AWAITING APPROVAL.</div>';
+                        return;
+                    }
+
+                    events.forEach(event => {
+                        const card = document.createElement('div');
+                        card.className = 'event-card';
+                        
+                        // Parse safely
+                        const title = event.event_title || event.summary || "Unknown Event";
+                        const rawStart = event.start ? event.start.dateTime : (event.start_time || null);
+                        let dateStr = "TBD";
+                        if (rawStart) {
+                            const d = new Date(rawStart);
+                            dateStr = !isNaN(d) ? d.toLocaleString() : rawStart;
+                        }
+                        const subjects = event.subjects ? event.subjects.join(', ') : '';
+                        const desc = event.description || "";
+                        const source = event.source || "Unknown";
+                        const sourceUrl = event.source_url || event.gmail_url || "";
+
+                        card.innerHTML = `
+                            <div class="event-info">
+                                <h3>${title} 
+                                    ${sourceUrl ? 
+                                        `<a href="${sourceUrl}" target="_blank" style="font-size:0.7em; color:#00ffff; text-decoration:underline; cursor:pointer; pointer-events:all;">[${source.toUpperCase()}]</a>` : 
+                                        `<span style="font-size:0.7em; color:#00ffff">[${source.toUpperCase()}]</span>`
+                                    }
+                                </h3>
+                                <div class="event-meta">
+                                    Time: ${dateStr}<br>
+                                    Subjects: ${subjects}<br>
+                                    Location: ${event.location || 'N/A'}
+                                </div>
+                                <div class="event-desc">${desc.substring(0, 100)}${desc.length > 100 ? '...' : ''}</div>
+                            </div>
+                            <div class="event-actions">
+                                <button class="approve-btn" onclick="approveEvent('${event.id}')">APPROVE</button>
+                                <button class="reject-btn" onclick="rejectEvent('${event.id}')">REJECT</button>
+                            </div>
+                        `;
+                        list.appendChild(card);
+                    });
+                })
+                .catch(err => {
+                    list.innerHTML = '<div class="loading-text">> ERROR FETCHING EVENTS.</div>';
+                    console.error(err);
+                });
+        }
+
+        function approveEvent(id) {
+            addLog(`Approving Event ${id}...`);
+            fetch('/api/events/approve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            })
+            .then(r => r.json())
+            .then(data => {
+                addLog(data.message);
+                fetchPendingEvents(); // Refresh list
+            })
+            .catch(err => addLog("Approval Error: " + err));
+        }
+
+        function rejectEvent(id) {
+            if(!confirm("Reject this event?")) return;
+            addLog(`Rejecting Event ${id}...`);
+            fetch('/api/events/reject', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            })
+            .then(r => r.json())
+            .then(data => {
+                addLog(data.message);
+                fetchPendingEvents(); // Refresh list
+            })
+            .catch(err => addLog("Rejection Error: " + err));
+        }
+
         // --- API Interaction Logic ---
+
 
         function triggerSync() {
             const btn = document.getElementById('sync-btn');
@@ -85,7 +330,7 @@
             const container = document.getElementById('log-container');
             const div = document.createElement('div');
             div.className = 'log-entry';
-            div.innerText = "> " + message;
+            div.innerHTML = "> " + message;
             container.prepend(div);
         }
 
@@ -102,7 +347,7 @@
                         data.logs.forEach((log) => {
                             const div = document.createElement('div');
                             div.className = 'log-entry';
-                            div.innerText = "> " + log;
+                            div.innerHTML = "> " + log;
                             container.appendChild(div);
                         });
                     }
@@ -140,7 +385,9 @@
                                     <span class="event-tag">${subjects}</span>
                                 </div>
                                 <div class="event-time">${time}</div>
-                                <div class="event-desc">${event.description || ''}</div>
+                                <div class="event-desc">
+                                    ${event.description || ''}
+                                </div>
                             `;
                             eventList.appendChild(li);
                         });

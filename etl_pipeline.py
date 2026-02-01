@@ -8,10 +8,12 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 import google.generativeai as genai
-from heuristics import identify_child, check_gift_heuristic, check_costume_heuristic
+from heuristics import identify_child, check_gift_heuristic, check_costume_heuristic, heuristic_extraction
 from portal_scanner import scan_school_portal
+from state_manager import get_last_successful_run, update_last_successful_run, load_config
 import asyncio
 from datetime import datetime
+import math
 
 
 # Scopes required for the application
@@ -46,24 +48,45 @@ def get_credentials():
             
     return creds
 
-def extract_emails(service, query="label:inbox -category:promotions -category:social"):
+def extract_emails(service, query="label:inbox", date_filter="newer_than:1d"):
     """
     Phase 1: EXTRACT
     """
-    # Augment query with project specific keywords to be safe, or rely on generalized "school" filter?
-    # For now, let's stick to the brief's example triggers if possible, or broad inbox + analysis
-    # Brief says: "New email from specific domains... OR emails containing keywords"
+    config = load_config()
+    search_settings = config.get("search_settings", {})
+    filtering_logic = config.get("filtering_logic", {})
     
-    keywords = ["Trip", "Assembly", "Birthday", "Party", "Costume", "Bring", "Year 3", "Reception"]
-    keyword_query = " OR ".join([f'"{k}"' for k in keywords])
+    # Flatten all search terms
+    all_terms = []
+    all_terms.extend(search_settings.get("children", []))
+    all_terms.extend(search_settings.get("schools", []))
+    all_terms.extend(search_settings.get("clubs", []))
+    all_terms.extend(search_settings.get("general_keywords", []))
     
-    # Filter for emails from the last 7 days (newer_than:7d)
-    # Target specific school sender OR keywords
-    full_query = f"{query} (from:noreply@weduc.co.uk OR {keyword_query}) newer_than:7d"
+    # Deduplicate and quote
+    if not all_terms:
+         # Fallback to hardcoded defaults if config is broken
+         all_terms = [
+            "School Trip", "Assembly", "Sports Day", "Parent Evening", "PTA", "Costume Day", 
+            "Year 3", "Year 5", "Year 6", "Reception Year", "Wednesday Notice",
+            "Benjamin Dewsbery", "Benji Dewsbery", "Tristan Dewsbery",
+            "Bishop Gilpin", "Dees Days", "FOBG", "Friends of Bishop Gilpin",
+            "Krispy Kreme", "donut", "fundraiser"
+        ]
     
-    # We only want *new* emails usually, but for this demo/MVP we might scan recent X
-    # In a real poller, we'd store specific history ID. For now, let's grab last 20 relevant messages.
-    results = service.users().messages().list(userId='me', q=full_query, maxResults=20).execute()
+    # Construct OR query for terms
+    terms_query = " OR ".join([f'"{t}"' for t in all_terms])
+    
+    # Exclusions
+    exclusions = filtering_logic.get("exclude_keywords", ["MARC", "SADIQ", "ENERGY", "NEWSLETTER"])
+    exclusion_query = " ".join([f"-{e}" for e in exclusions])
+    
+    # Filter for emails based on dynamic date filter
+    # ULTRA-STRICT: Only precise school entities + Exclude Noise
+    full_query = f"{query} ({terms_query}) {date_filter} {exclusion_query}"
+    
+    # Increased to 500 for historical backfill
+    results = service.users().messages().list(userId='me', q=full_query, maxResults=500).execute()
     messages = results.get('messages', [])
     
     email_data_list = []
@@ -76,18 +99,37 @@ def extract_emails(service, query="label:inbox -category:promotions -category:so
         subject = next((h['value'] for h in headers if h['name'] == 'Subject'), "No Subject")
         sender = next((h['value'] for h in headers if h['name'] == 'From'), "Unknown")
         
-        # Simple body extraction (multipart handling can be complex, simplifying for MVP)
-        body = ""
+        # Body extraction - handle both plain text and HTML
+        plain_text = ""
+        html_content = ""
+        
+        def walk_parts(parts):
+            nonlocal plain_text, html_content
+            for part in parts:
+                mime = part.get('mimeType')
+                data = part.get('body', {}).get('data')
+                
+                if mime == 'text/plain' and data:
+                    plain_text += base64.urlsafe_b64decode(data).decode()
+                elif mime == 'text/html' and data:
+                    html_content += base64.urlsafe_b64decode(data).decode()
+                elif 'parts' in part:
+                    walk_parts(part['parts'])
+
         if 'parts' in payload:
-            for part in payload['parts']:
-                if part['mimeType'] == 'text/plain':
-                    data = part['body'].get('data')
-                    if data:
-                        body += base64.urlsafe_b64decode(data).decode()
+            walk_parts(payload['parts'])
         elif 'body' in payload:
             data = payload['body'].get('data')
             if data:
-                body += base64.urlsafe_b64decode(data).decode()
+                body_str = base64.urlsafe_b64decode(data).decode()
+                if payload.get('mimeType') == 'text/html':
+                    html_content = body_str
+                else:
+                    plain_text = body_str
+
+        # Decision: If HTML is present, it's usually the "richer" source for school notices
+        # We append both to be safe, or just use the largest one
+        body = html_content if len(html_content) > len(plain_text) else plain_text
                 
         email_data_list.append({
             "id": msg['id'],
@@ -98,56 +140,103 @@ def extract_emails(service, query="label:inbox -category:promotions -category:so
         
     return email_data_list
 
-def transform_email_content(email_data):
+import re
+
+def strip_html(html_str):
+    """Simple regex based HTML tag stripper."""
+    if not html_str: return ""
+    clean = re.compile('<.*?>')
+    return re.sub(clean, ' ', html_str)
+
+def transform_email_content(email_data, log_callback=print):
     """
     Phase 2: TRANSFORM with Gemini 1.5 Pro
     """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        print("Error: GEMINI_API_KEY not set.")
+        log_callback("Error: GEMINI_API_KEY not set.")
         return None
         
     genai.configure(api_key=api_key)
     
-    # Using gemini-1.5-flash for speed/cost in demo, Pro is requested but Flash is often sufficient for text extraction
-    # Switching to provided model req: Gemini 1.5 Pro
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    # Strip HTML for cleaner extraction
+    body_clean = strip_html(email_data.get('body', ''))
     
     prompt = f"""
-    You are an executive assistant extracting structured JSON from messy school emails. 
-    You must distinguish between Benjamin (Year 2/Reception age approx) and Tristan (Year 3 age approx).
+    You are a Logistics Officer. Your goal is to extract calendar events/deadlines from school emails.
     
-    Email Subject: {email_data['subject']}
+    Email Subject: {email_data.get('subject', 'No Subject')}
     Email Body:
-    {email_data['body']}
+    {body_clean[:4000]}
     
-    Extract the following JSON structure ONLY. If no event is found, return null.
+    Priority Targets:
+    - "New Notice", "Update", "Reminder", "Bishop Gilpin Update"
+    - Christmas Lunch, Nativity, Flu Vaccinations, Winter Fair, Shakespeare Week.
+    - Deadlines, early closures, club reminders.
+    
+    Instructions:
+    - Look for dates in SUBJECT and Body.
+    - IGNORE emails that are just "Newsletters", "Weekly Updates", or notifications that a document has been "Released" or is "Available" unless they contain a specific future event date or deadline.
+    - EXTRACT EVERY REAL EVENT (Trips, Early Closures, Sales, Deadlines, Medical).
+    - Even extract past events (Nov 2025) for testing.
+    - If year is missing: assume 2026 if date is in Jan-Aug, or 2025 if it's Nov-Dec.
+    - Distinguish between Tristan (Year 3/5) and Benjamin (Reception/Year 2).
+    - Handle double-date formats like "11/03/2026/11/03/2026" by taking the first part.
+    
+    Return a JSON object with:
+    1. "found": boolean
+    2. "analysis": "One sentence explaining why it is or isn't an event"
+    3. "event": {{ ... }} or null
+    
+    Event template:
     {{
-        "event_title": "Short title",
-        "start_time": "ISO 8601 format (YYYY-MM-DDTHH:MM:SS)",
-        "end_time": "ISO 8601 format",
-        "location": "Location string",
-        "description": "Details including 'To Do' items like 'Bring packed lunch', costs, etc.",
-        "subjects": ["Benjamin", "Tristan"] (List of detected children based on Year/Name)
+        "event_title": "Descriptive title",
+        "start_time": "YYYY-MM-DDTHH:MM:SS",
+        "end_time": "YYYY-MM-DDTHH:MM:SS",
+        "location": "Bishop Gilpin / School",
+        "description": "Details...",
+        "subjects": ["Tristan", "Benjamin"]
     }}
-    
-    Heuristics to apply:
-    - Look for "Year 3" for Tristan.
-    - Look for "Reception" or "Year 2" for Benjamin.
     """
     
+    # Try multiple model names for better compatibility
+    response = None
+    # Verified options in this environment: models/gemini-2.5-flash, models/gemini-2.0-flash, models/gemini-flash-latest
+    for model_name in ['models/gemini-2.5-flash', 'models/gemini-2.0-flash', 'models/gemini-flash-latest', 'models/gemini-pro-latest']:
+        try:
+            print(f"Logistics Brain: Attempting analysis with {model_name}...")
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            if response:
+                # Store which model succeeded in the return message
+                used_model = model_name
+                break
+        except Exception as e:
+            last_err = str(e)
+            print(f"Logistics Brain: {model_name} failed: {last_err}")
+            continue
+    else:
+        return None, f"All Gemini models failed. Last Error: {last_err}"
+    
     try:
-        response = model.generate_content(prompt)
-        text = response.text
-        # Clean markdown if present
+        text = response.text.strip()
+        # Clean markdown
         if "```json" in text:
-            text = text.replace("```json", "").replace("```", "")
+            text = text.split("```json")[1].split("```")[0].strip()
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0].strip()
+            
+        res_json = json.loads(text)
+        analysis = res_json.get("analysis", "No analysis provided.")
         
-        event_json = json.loads(text)
-        return event_json
+        if res_json.get("found") and res_json.get("event"):
+            return res_json["event"], analysis
+        else:
+            return None, analysis
+            
     except Exception as e:
         print(f"Transformation failed: {e}")
-        return None
+        return None, f"Analysis Failed: {e}"
 
 def check_calendar_conflicts(service, start_time, end_time):
     """
@@ -168,17 +257,21 @@ def check_calendar_conflicts(service, start_time, end_time):
         print(f"Conflict check failed: {e}")
         return []
 
-def load_to_calendar(service, event_json, dry_run=False, approval_mode=False):
+def load_to_calendar(service, event_json, dry_run=False, approval_mode=False, raw_body=None):
     """
     Phase 3: LOAD
     """
-    if not event_json: 
-        return "No detected event data.", None
+    # Post-LLM Refinement: Apply the User's strict labeling heuristics
+    # We combine Subject (Event Title) and Body for the most accurate labeling
+    title = event_json.get('event_title', '')
+    matching_text = f"{title} {raw_body}" if raw_body else f"{title} {event_json.get('description', '')}"
+    subjects = identify_child(matching_text)
+    
+    if subjects == "IGNORE":
+        return "Skipped: Irrelevant Year Group", None
         
-    # Apply Python Heuristics (Post-LLM refinement)
-    subjects = event_json.get("subjects", [])
     if not subjects:
-        title_tag = ""
+        title_tag = "[Bishop Gilpin]"
     else:
         title_tag = f"[{', '.join(subjects)}]"
 
@@ -219,7 +312,8 @@ def load_to_calendar(service, event_json, dry_run=False, approval_mode=False):
             'timeZone': 'Europe/London',
         },
         'colorId': color_id,
-        'status': 'tentative', 
+        'status': 'tentative',
+        'source_url': event_json.get('gmail_url') or event_json.get('source_url')
     }
     
     # Logic:
@@ -256,7 +350,21 @@ def run_pipeline(log_callback=print, event_callback=None):
         return
 
     log_callback("Phase 1: Scanning Inbox...")
-    emails = extract_emails(gmail_service)
+    
+    # Determine lookback period based on state
+    last_run_ts = get_last_successful_run()
+    if last_run_ts:
+        days_since = (time.time() - last_run_ts) / (24 * 3600)
+        # Add 1 day buffer to be safe
+        lookback_days = math.ceil(days_since) + 1
+        date_filter = f"newer_than:{lookback_days}d"
+        log_callback(f" > Last success: {datetime.fromtimestamp(last_run_ts).strftime('%Y-%m-%d %H:%M')}. Scanning last {lookback_days} days.")
+    else:
+        # Initial run / fallback
+        date_filter = "newer_than:6m"
+        log_callback(" > No previous state found. Running INITIAL 6-MONTH BACKFILL.")
+        
+    emails = extract_emails(gmail_service, date_filter=date_filter)
     
     # Phase 1b: Portal Scanning (Async)
     log_callback("Phase 1b: Scanning School Portal...")
@@ -278,21 +386,27 @@ def run_pipeline(log_callback=print, event_callback=None):
     if emails:
         log_callback(f"Found {len(emails)} candidate emails.")
         for email in emails:
-            log_callback(f"Processing Email: {email['subject']}...")
-            event_data = transform_email_content(email)
+            # Pre-AI Filter: Check heuristics first to save tokens
+            full_text = f"{email['subject']} {email['body']}"
+            pre_subjects = identify_child(full_text)
             
+            if pre_subjects == "IGNORE":
+                log_callback(f"Skipping (Heuristic Ignore): {email['subject']}...")
+                continue
+                
+            log_callback(f"Processing: {email['subject']}... <a href='https://mail.google.com/mail/u/0/#inbox/{email['id']}' target='_blank' style='color:#00ffff; text-decoration:none;'>[ SOURCE ]</a>")
+            event_data = heuristic_extraction(email.get('body', ''), email.get('subject', ''), email['id'])
             if event_data:
                 event_data['source'] = 'email' # Tag source
-                log_callback(f"Transform SUCCESS: {json.dumps(event_data, indent=2)}")
+                log_callback(f"   > Date Extracted: {event_data['start_time'][:10]}")
                 
-                # Load (Approval Mode = True by default for Logistics Officer)
-                result_msg, pending_event = load_to_calendar(calendar_service, event_data, approval_mode=True)
-                log_callback(f"Load Result: {result_msg}")
-                
-                if pending_event and event_callback:
-                    event_callback(pending_event)
-            else:
-                log_callback("Transform: No event detected in email.")
+                # Load (Automated Mode = False for daily run)
+                result_msg, pending_event = load_to_calendar(calendar_service, event_data, approval_mode=False, raw_body=email.get('body'))
+                log_callback(f" > Auto-Created: {result_msg}")
+            
+            # Rate limit to avoid 429 quota errors on free tier (15 RPM)
+            # Increased to 10s for absolute safety
+            time.sleep(10)
     else:
         log_callback("No relevant recent emails found.")
 
@@ -303,12 +417,14 @@ def run_pipeline(log_callback=print, event_callback=None):
             # Portal events are already JSON, proceed to Load
             # Ensure they have required fields
             if 'start_time' in p_event:
-                 result_msg, pending_event = load_to_calendar(calendar_service, p_event, approval_mode=True)
-                 log_callback(f"Load Result: {result_msg}")
-                 if pending_event and event_callback:
-                    event_callback(pending_event)
+                 result_msg, pending_event = load_to_calendar(calendar_service, p_event, approval_mode=False)
+                 log_callback(f" > Auto-Created: {result_msg}")
             else:
                 log_callback("Skipping invalid portal event data.")
+
+    # Update state only if we reached the end successfully
+    update_last_successful_run()
+    log_callback("Pipeline Complete. State saved.")
 
     log_callback("ETL Job Finished.")
             

@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Social ETL Scheduler</title>
+    <!-- Use the same cyberpunk style as index.html -->
+    <style>
+        :root {
+            --bg-color: #0d0d12;
+            --text-color: #e0e0e0;
+            --accent-color: #00ffff;
+            --accent-dim: rgba(0, 255, 255, 0.1);
+            --border-color: #333;
+            --card-bg: #1a1a20;
+            --success-color: #00ff9d;
+            --danger-color: #ff0055;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 1px solid var(--accent-color);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            margin: 0;
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .nav-link {
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid var(--accent-color);
+            padding: 8px 16px;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background: var(--accent-dim);
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        .status-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #888;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        .settings-section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            color: var(--accent-color);
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border-color);
+            color: var(--success-color);
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .action-bar {
+            position: sticky;
+            bottom: 20px;
+            background: var(--card-bg);
+            padding: 20px;
+            border: 1px solid var(--accent-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        button.primary {
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 10px 25px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-family: inherit;
+        }
+        
+        button.primary:hover {
+            box-shadow: 0 0 15px var(--accent-color);
+        }
+
+        /* Tag Input Style Simulation using textareas */
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>System Configuration</h1>
+        <a href="/" class="nav-link">&lt; Terminal</a>
+    </header>
+
+    <!-- Status Panel -->
+    <div class="status-panel" id="statusPanel">
+        <div class="stat-box">
+            <h3>Last Successful Run</h3>
+            <div class="stat-value" id="lastRun">Loading...</div>
+        </div>
+        <div class="stat-box">
+            <h3>Current Status</h3>
+            <div class="stat-value" id="currentStatus">Loading...</div>
+        </div>
+        <div class="stat-box">
+            <h3>Events Created (Session)</h3>
+            <div class="stat-value" id="eventsCreated">Loading...</div>
+        </div>
+    </div>
+
+    <form id="settingsForm">
+        <!-- Search Params -->
+        <div class="settings-section">
+            <h2 class="section-title">Search Parameters</h2>
+            
+            <div class="form-group">
+                <label>Master Labels (Calendar Tags)</label>
+                <textarea id="children" placeholder="e.g. Benjamin, Tristan, Household"></textarea>
+                <div class="help-text">These are the <b>final labels</b> that appear on your calendar. Each name here creates a "Drop Zone" in the Visual Mapper below.</div>
+            </div>
+
+            <div class="form-group">
+                <label>Year Groups</label>
+                <textarea id="year_groups" placeholder="e.g. Year 3, Year 5"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Schools</label>
+                <textarea id="schools" placeholder="e.g. Bishop Gilpin"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Clubs & Organizations</label>
+                <textarea id="clubs" placeholder="e.g. FOBG, PTA, Krispy Kreme"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>General Keywords</label>
+                <textarea id="general_keywords" placeholder="e.g. School Trip, Assembly, Sports Day"></textarea>
+                <div class="help-text">General terms that might indicate an event even if a specific name isn't found.</div>
+            </div>
+        </div>
+
+        <!-- Filter Logic -->
+        <div class="settings-section">
+            <h2 class="section-title">Filtering Logic</h2>
+            
+            <div class="form-group">
+                <label>Exclude Keywords (Noise Filter)</label>
+                <textarea id="exclude_keywords" style="border-color: var(--danger-color); color: #ffaaaa;" placeholder="e.g. NEWSLETTER, MARC"></textarea>
+                <div class="help-text">Emails containing these words in the subject/body will be ignored.</div>
+            </div>
+
+            <div class="form-group">
+                <label>Strict Override Keywords</label>
+                <textarea id="strict_override_keywords" placeholder="e.g. closing, closed, office"></textarea>
+                <div class="help-text">If these words are found, force association with "Bishop Gilpin" even if no specific child is named.</div>
+            </div>
+        </div>
+
+        <!-- Association Mappings -->
+        <div class="settings-section">
+            <h2 class="section-title">Visual Label Mapper (Drag & Drop)</h2>
+            <div class="mapper-layout">
+                <div class="mapper-pool">
+                    <label>Unassigned Keywords Pool</label>
+                    <div id="keywordPool" class="tag-container">
+                        <!-- Keywords from top sections will appear here -->
+                    </div>
+                    <div class="help-text">Keywords defined in Search Parameters appear here. Drag them to a child below.</div>
+                </div>
+                
+                <div class="mapper-assignments">
+                    <label>Label Assignments (Drop Zones)</label>
+                    <div style="font-size:12px; color: #888; margin-bottom: 15px; border-left: 2px solid var(--accent-color); padding-left: 10px;">
+                        ⚙️ <b>How to create labels:</b> Add a name (e.g. <i>"Gymnastics"</i>) to the <b>Master Labels</b> box at the top to create a new bucket here.<br>
+                        💡 <b>To merge:</b> Put aliases (e.g. <i>"Benji"</i>) in <i>General Keywords</i>, then drag them into the <b>Benjamin</b> bucket below.
+                    </div>
+                    <div id="childBuckets" class="buckets-grid">
+                        <!-- Label buckets will be injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <style>
+        .mapper-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 30px;
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tag-container {
+            min-height: 150px;
+            padding: 15px;
+            background: #000;
+            border: 1px dashed var(--border-color);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-content: flex-start;
+        }
+
+        .draggable-tag {
+            background: var(--accent-dim);
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            padding: 4px 10px;
+            font-size: 13px;
+            cursor: grab;
+            user-select: none;
+            transition: all 0.2s;
+        }
+
+        .draggable-tag:active { cursor: grabbing; }
+        .draggable-tag.dragging { opacity: 0.5; border-style: dashed; }
+
+        .buckets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .child-bucket {
+            background: #1a1a20;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            min-height: 120px;
+            transition: all 0.3s;
+        }
+
+        .child-bucket.drag-over {
+            border-color: var(--success-color);
+            background: rgba(0, 255, 157, 0.05);
+            box-shadow: 0 0 15px rgba(0, 255, 157, 0.2);
+        }
+
+        .child-bucket h4 {
+            margin: 0 0 10px 0;
+            color: var(--accent-color);
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .bucket-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 50px;
+        }
+
+        .assigned-tag {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 2px 8px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .remove-tag {
+            color: var(--danger-color);
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+
+        <div class="action-bar">
+            <span id="saveStatus" style="align-self: center; color: var(--success-color); display: none;">Saved Successfully!</span>
+            <button type="button" class="nav-link" style="background:none; color:var(--accent-color); font-weight:bold;" onclick="triggerSync()" id="syncBtn">TRIGGER MANUAL SYNC</button>
+            <button type="button" class="primary" onclick="saveSettings()">Save Configuration</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // --- Visual Mapper State ---
+    let currentMappings = {}; // e.g. { "Benjamin": ["Year 2"] }
+
+    function updateMapperPool() {
+        // 1. Collect ALL keywords from the 5 search textareas
+        const split = (str) => str.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        const ids = ['children', 'year_groups', 'schools', 'clubs', 'general_keywords'];
+        let allKeywords = [];
+        ids.forEach(id => {
+            allKeywords = allKeywords.concat(split(document.getElementById(id).value));
+        });
+
+        // 2. Filter out keywords that are already assigned
+        const assignedKeywords = new Set();
+        Object.values(currentMappings).forEach(keywords => {
+            keywords.forEach(k => assignedKeywords.add(k));
+        });
+
+        const poolContainer = document.getElementById('keywordPool');
+        poolContainer.innerHTML = '';
+        
+        // Deduplicate
+        const uniqueKeywords = [...new Set(allKeywords)].filter(k => !assignedKeywords.has(k));
+
+        uniqueKeywords.forEach(keyword => {
+            const el = document.createElement('div');
+            el.className = 'draggable-tag';
+            el.innerText = keyword;
+            el.draggable = true;
+            el.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', keyword);
+                el.classList.add('dragging');
+            });
+            el.addEventListener('dragend', () => el.classList.remove('dragging'));
+            poolContainer.appendChild(el);
+        });
+    }
+
+    function renderBuckets(childrenNames) {
+        const grid = document.getElementById('childBuckets');
+        grid.innerHTML = '';
+
+        childrenNames.forEach(fullName => {
+            const firstName = fullName.split(' ')[0];
+            const div = document.createElement('div');
+            div.className = 'child-bucket';
+            div.innerHTML = `
+                <h4>${firstName}</h4>
+                <div class="bucket-tags" data-child="${firstName}"></div>
+            `;
+            
+            const tagArea = div.querySelector('.bucket-tags');
+            const items = currentMappings[firstName] || [];
+            
+            items.forEach(keyword => {
+                const tag = document.createElement('div');
+                tag.className = 'assigned-tag';
+                tag.innerHTML = `
+                    ${keyword} <span class="remove-tag" onclick="removeMapping('${firstName}', '${keyword}')">×</span>
+                `;
+                tagArea.appendChild(tag);
+            });
+
+            // Drop Listeners
+            div.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                div.classList.add('drag-over');
+            });
+            div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
+            div.addEventListener('drop', (e) => {
+                e.preventDefault();
+                div.classList.remove('drag-over');
+                const keyword = e.dataTransfer.getData('text/plain');
+                if (keyword) addMapping(firstName, keyword);
+            });
+
+            grid.appendChild(div);
+        });
+    }
+
+    function addMapping(child, keyword) {
+        if (!currentMappings[child]) currentMappings[child] = [];
+        if (!currentMappings[child].includes(keyword)) {
+            currentMappings[child].push(keyword);
+            updateMapperPool();
+            const children = document.getElementById('children').value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            renderBuckets(children);
+        }
+    }
+
+    function removeMapping(child, keyword) {
+        currentMappings[child] = currentMappings[child].filter(k => k !== keyword);
+        updateMapperPool();
+        const children = document.getElementById('children').value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        renderBuckets(children);
+    }
+
+    // Load Data
+    async function loadData() {
+        try {
+            const response = await fetch('/api/settings');
+            const data = await response.json();
+            
+            // Render Status
+            document.getElementById('lastRun').innerText = data.status.last_run_formatted;
+            document.getElementById('currentStatus').innerText = data.status.current_status;
+            document.getElementById('eventsCreated').innerText = data.status.events_created_session;
+            
+            // Render Form
+            const config = data.config;
+            const search = config.search_settings || {};
+            const logic = config.filtering_logic || {};
+            
+            // Helper to join array
+            const join = (arr) => (arr || []).join(', ');
+
+            document.getElementById('children').value = join(search.children);
+            document.getElementById('year_groups').value = join(search.year_groups);
+            document.getElementById('schools').value = join(search.schools);
+            document.getElementById('clubs').value = join(search.clubs);
+            document.getElementById('general_keywords').value = join(search.general_keywords);
+            
+            document.getElementById('exclude_keywords').value = join(logic.exclude_keywords);
+            document.getElementById('strict_override_keywords').value = join(logic.strict_override_keywords);
+
+            // Initial Mappings State
+            currentMappings = config.child_mappings || {};
+            
+            // Add listeners to textareas to update the pool in real-time
+            ['children', 'year_groups', 'schools', 'clubs', 'general_keywords'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updateMapperPool);
+            });
+
+            // Initial Render of Mapper
+            const children = split(document.getElementById('children').value);
+            renderBuckets(children);
+            updateMapperPool();
+            
+        } catch (e) {
+            console.error(e);
+            alert("Failed to load settings.");
+        }
+    }
+
+    const split = (str) => str.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+    // Save Data
+    async function saveSettings() {
+        const newConfig = {
+            search_settings: {
+                children: split(document.getElementById('children').value),
+                year_groups: split(document.getElementById('year_groups').value),
+                schools: split(document.getElementById('schools').value),
+                clubs: split(document.getElementById('clubs').value),
+                general_keywords: split(document.getElementById('general_keywords').value)
+            },
+            filtering_logic: {
+                exclude_keywords: split(document.getElementById('exclude_keywords').value),
+                strict_override_keywords: split(document.getElementById('strict_override_keywords').value)
+            },
+            child_mappings: currentMappings
+        };
+
+        try {
+            const response = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newConfig)
+            });
+            
+            if (response.ok) {
+                const status = document.getElementById('saveStatus');
+                status.style.display = 'block';
+                setTimeout(() => status.style.display = 'none', 3000);
+            } else {
+                alert("Failed to save.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error saving settings.");
+        }
+    }
+
+    async function triggerSync() {
+        const btn = document.getElementById('syncBtn');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = "RUNNING...";
+
+        try {
+            const response = await fetch('/api/trigger', { method: 'POST' });
+            const data = await response.json();
+            
+            if (response.status === 200) {
+                btn.innerText = "TRIGGERED!";
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                }, 3000);
+            } else {
+                btn.innerText = "ALREADY RUNNING";
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                }, 3000);
+            }
+        } catch (e) {
+            console.error(e);
+            btn.innerText = "ERROR";
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }, 3000);
+        }
+    }
+
+    // Initial Load
+    loadData();
+</script>
+
+</body>
+</html>

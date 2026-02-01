@@ -1,0 +1,59 @@
+{
+    "search_settings": {
+        "children": [
+            "Benjamin Dewsbery",
+            "Tristan Dewsbery"
+        ],
+        "year_groups": [
+            "Year 2"
+        ],
+        "schools": [
+            "Bishop Gilpin",
+            "Dees Days"
+        ],
+        "clubs": [
+            "FOBG",
+            "Friends of Bishop Gilpin",
+            "Krispy Kreme",
+            "Wednesday Notice",
+            "PTA"
+        ],
+        "general_keywords": [
+            "School Trip",
+            "Assembly",
+            "Sports Day",
+            "Parent Evening",
+            "Costume Day",
+            "fundraiser",
+            "Benji"
+        ]
+    },
+    "filtering_logic": {
+        "exclude_keywords": [
+            "MARC",
+            "SADIQ",
+            "ENERGY",
+            "NEWSLETTER"
+        ],
+        "strict_override_keywords": [
+            "fobg",
+            "friends of bishop gilpin",
+            "fundraiser",
+            "football",
+            "dodgeball",
+            "Athletics",
+            "BG Explorers"
+        ]
+    },
+    "child_mappings": {
+        "Benjamin": [
+            "Year 2",
+            "Dodgeball",
+            "Benji"
+        ],
+        "Tristan": [
+            "Year 4",
+            "Football"
+        ]
+    }
+}

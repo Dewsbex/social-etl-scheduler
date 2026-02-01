@@ -4,13 +4,16 @@ import time
 import schedule
 import base64
 import uuid
+import json
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
+
+# Load environment variables FIRST
+load_dotenv()
+
 from googleapiclient.discovery import build
 from etl_pipeline import load_to_calendar, get_credentials, CALENDAR_ID
-
-# Load environment variables
-load_dotenv()
+from state_manager import load_config, save_config, get_last_successful_run
 
 app = Flask(__name__)
 app.config['PROPAGATE_EXCEPTIONS'] = True
@@ -24,6 +27,10 @@ etl_status = {
     "events": [], # Accepted/History events
     "pending_events": [] # Queue for approval
 }
+
+# Add 'last_run_timestamp' to etl_status dynamically on request, 
+# or just serve it via the settings API.
+
 
 def setup_credentials():
     """
@@ -55,7 +62,6 @@ def log_message(message):
 
 def event_callback(event_data):
     """Callback to store found events in the global state."""
-    log_message(f"Event Found: {event_data.get('summary', 'Unknown')}")
     # Add timestamp and ID
     event_data['_discovered_at'] = time.strftime("%Y-%m-%d %H:%M:%S")
     if 'id' not in event_data:
@@ -91,8 +97,8 @@ def run_etl_job():
         etl_status["last_run"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
 def scheduler_loop():
-    # Run once a day at 08:30 AM
-    schedule.every().day.at("08:30").do(run_etl_job)
+    # Run once a day at 18:00 PM as requested
+    schedule.every().day.at("18:00").do(run_etl_job)
     
     # Also run once heavily at startup? Or wait for manual trigger?
     # schedule.run_all()
@@ -145,11 +151,17 @@ def approve_event():
         # Because we modified `load_to_calendar` to return the `event` dict.
         # So we can just insert it directly.
         
-        # Clean metadata
-        body = {k:v for k,v in event_to_approve.items() if k not in ['id', 'source', '_discovered_at', 'status_tag']}
+        # Clean metadata - Exclude internal and non-standard fields
+        body = {k:v for k,v in event_to_approve.items() if k not in ['id', 'source', '_discovered_at', 'status_tag', 'source_url', 'gmail_url']}
         
-        result = calendar_service.events().insert(calendarId=CALENDAR_ID, body=body).execute()
-        
+        try:
+            log_message(f"Attempting to insert into Calendar ID: {CALENDAR_ID}")
+            log_message(f"Event Body: {json.dumps(body)}")
+            result = calendar_service.events().insert(calendarId=CALENDAR_ID, body=body).execute()
+        except Exception as api_err:
+            log_message(f"API Error during insert: {str(api_err)}")
+            raise api_err
+            
         log_message(f"APPROVED & CREATED: {result.get('htmlLink')}")
         
         # Remove from Pending
@@ -165,6 +177,38 @@ def approve_event():
     except Exception as e:
         log_message(f"Approval Failed: {e}")
         return jsonify({"message": f"Error: {e}"}), 500
+
+@app.route('/settings')
+def settings():
+    return render_template('settings.html')
+
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    config = load_config()
+    last_run_ts = get_last_successful_run()
+    
+    # Calculate stats for display
+    total_events = len(etl_status["events"])
+    pending_count = len(etl_status["pending_events"])
+    
+    response = {
+        "config": config,
+        "status": {
+            "last_run_timestamp": last_run_ts,
+            "last_run_formatted": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_run_ts)) if last_run_ts else "Never",
+            "current_status": etl_status["status"],
+            "events_created_session": total_events
+        }
+    }
+    return jsonify(response)
+
+@app.route('/api/settings', methods=['POST'])
+def update_settings():
+    new_config = request.json
+    if save_config(new_config):
+        return jsonify({"message": "Settings saved successfully"}), 200
+    else:
+        return jsonify({"message": "Failed to save settings"}), 500
 
 @app.route('/api/events/reject', methods=['POST'])
 def reject_event():

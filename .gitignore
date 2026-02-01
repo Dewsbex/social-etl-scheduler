@@ -1,5 +1,8 @@
 credentials.json
-
 __pycache__/
 *.pyc
 .env
+pipeline_state.json
+token.json
+token_gmail.json
+token_calendar.json
