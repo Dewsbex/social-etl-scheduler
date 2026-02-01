@@ -2,9 +2,9 @@ import json
 import os
 import time
 
-STATE_FILE = "pipeline_state.json"
-
-CONFIG_FILE = "config.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATE_FILE = os.path.join(BASE_DIR, "pipeline_state.json")
+CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 
 def get_last_successful_run():
     """Returns the timestamp of the last successful run, or a default lookback if none exists."""
