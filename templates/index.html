@@ -12,10 +12,13 @@
            1. VIBE LAB ENVIRONMENT (Background)
            ========================================= */
         body {
-            /* CHANGED: Deepened from #F0F0F0 to #EDEDED for better card contrast */
-            background-color: #EDEDED; 
-            /* Optional: Adds subtle paper texture */
-            background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.04"/%3E%3C/svg%3E');
+            /* THE ORB LIGHT GRADIENT */
+            /* Light Source: Signature Blue (#00BFFF) at 8% opacity (Top Left) */
+            /* Ground: Cool Platinum (#eef1f5) (Bottom Right) */
+            background: linear-gradient(135deg, rgba(0, 191, 255, 0.08) 0%, #eef1f5 100%);
+            
+            /* Locks the light source in place while scrolling */
+            background-attachment: fixed;
 
             color: #111;
             font-family: 'Inter', sans-serif;
@@ -25,7 +28,7 @@
             box-sizing: border-box;
             overflow-x: hidden;
 
-            /* CRITICAL: Makes text look crisp on the grey background */
+            /* PRO FINISH: Crisp typography */
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
