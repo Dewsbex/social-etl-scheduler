@@ -287,6 +287,26 @@
             cursor: grab;
             user-select: none;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pool-tag {
+            background: rgba(0, 255, 255, 0.05);
+        }
+
+        .delete-tag {
+            color: var(--danger-color);
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+
+        .delete-tag:hover {
+            opacity: 1;
         }
 
         .draggable-tag:active { cursor: grabbing; }
@@ -378,9 +398,15 @@
 
         uniqueKeywords.forEach(keyword => {
             const el = document.createElement('div');
-            el.className = 'draggable-tag';
-            el.innerText = keyword;
+            el.className = 'draggable-tag pool-tag';
+            el.innerHTML = `
+                <span class="tag-label">${keyword}</span>
+                <span class="delete-tag" onclick="deleteKeywordFromSource('${keyword.replace(/'/g, "\\'")}')">×</span>
+            `;
             el.draggable = true;
+            
+            // Only the label part initiates drag to avoid misclicks on X
+            const label = el.querySelector('.tag-label');
             el.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', keyword);
                 el.classList.add('dragging');
@@ -388,6 +414,27 @@
             el.addEventListener('dragend', () => el.classList.remove('dragging'));
             poolContainer.appendChild(el);
         });
+    }
+
+    function deleteKeywordFromSource(keyword) {
+        if (!confirm(`Permanently remove "${keyword}" from configuration?`)) return;
+        
+        const ids = ['children', 'year_groups', 'schools', 'clubs', 'general_keywords'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            const val = el.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            const updated = val.filter(k => k !== keyword);
+            el.value = updated.join(', ');
+        });
+
+        // Also remove from any mappings
+        Object.keys(currentMappings).forEach(child => {
+            currentMappings[child] = currentMappings[child].filter(k => k !== keyword);
+        });
+
+        updateMapperPool();
+        const children = split(document.getElementById('children').value);
+        renderBuckets(children);
     }
 
     function renderBuckets(childrenNames) {
