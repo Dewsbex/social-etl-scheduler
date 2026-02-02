@@ -48,7 +48,7 @@ def get_credentials():
             
     return creds
 
-def extract_emails(service, query="label:inbox", date_filter="newer_than:1d"):
+def extract_emails(service, query="label:inbox", date_filter="newer_than:150d"):
     """
     Phase 1: EXTRACT
     """
