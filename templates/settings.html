@@ -600,6 +600,22 @@
         renderBuckets(categoryData['children'] || []);
     }
 
+    async function fetchStatus() {
+        try {
+            const r = await fetch('/api/status');
+            const data = await r.json();
+            
+            // Update last run display
+            if (data.last_run) {
+                document.getElementById('last-run-display').innerText = data.last_run;
+            } else {
+                document.getElementById('last-run-display').innerText = "NEVER";
+            }
+        } catch (e) {
+            console.error("Error fetching status:", e);
+        }
+    }
+
     async function loadData() {
         try {
             const r = await fetch('/api/settings');
@@ -701,10 +717,12 @@
     }
 
     loadData();
+    fetchStatus();  // Initial fetch
+    setInterval(fetchStatus, 5000);  // Update every 5 seconds
 </script>
 
 <div class="footer-bar" style="text-align: center; margin-top: 40px; padding: 20px 0; color: #888; font-size: 0.8rem; font-family: 'Space Mono', monospace;">
-    V0.13 // LAST RUN: <span id="last-run-display">Initializing...</span>
+    V0.14 // LAST RUN: <span id="last-run-display">Initializing...</span>
 </div>
 
 </body>
