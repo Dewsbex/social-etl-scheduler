@@ -78,7 +78,8 @@ def extract_emails(service, query="label:inbox", date_filter="newer_than:1d"):
     terms_query = " OR ".join([f'"{t}"' for t in all_terms])
     
     # Exclusions
-    exclusions = filtering_logic.get("exclude_keywords", ["MARC", "SADIQ", "ENERGY", "NEWSLETTER"])
+    exclusions = filtering_logic.get("exclude_keywords", ["MARC", "SADIQ", "ENERGY"])
+    # Removed "NEWSLETTER" to allow AI to parse newsletters for dates
     exclusion_query = " ".join([f"-{e}" for e in exclusions])
     
     # Filter for emails based on dynamic date filter

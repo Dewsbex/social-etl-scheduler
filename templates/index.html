@@ -259,6 +259,11 @@
             </div>
 
         </div>
+        </div>
+
+        <div class="footer-bar" style="grid-column: 1 / -1; text-align: center; margin-top: 40px; color: #888; font-size: 0.8rem; font-family: 'Space Mono', monospace;">
+            V0.11 // LAST RUN: <span id="last-run-display">Initializing...</span>
+        </div>
     </div>
 
     <script>
@@ -343,6 +348,30 @@
             .catch(err => addLog("Rejection Error: " + err));
         }
 
+        let currentVideoIndex = 1;
+
+        function playHeroVideo() {
+            const img = document.getElementById('hero-img');
+            const video = document.getElementById('hero-video');
+            if (video.style.display === 'block') return; // Already playing
+
+            // Alternate between 1 and 2
+            const videoNum = currentVideoIndex;
+            currentVideoIndex = currentVideoIndex === 1 ? 2 : 1;
+
+            video.src = `/static/images/hero_looper_${videoNum}.mp4`;
+            video.load();
+
+            img.style.display = 'none';
+            video.style.display = 'block';
+            video.play();
+
+            video.onended = function() {
+                video.style.display = 'none';
+                img.style.display = 'block';
+            };
+        }
+
         function triggerSync() {
             const btn = document.getElementById('sync-btn');
             const originalText = btn.innerText;
@@ -401,6 +430,12 @@
                         document.getElementById('sync-btn').innerText = "RUNNING...";
                     } else {
                         document.getElementById('sync-btn').innerText = "INITIATE SYNC";
+                    }
+
+                    if (data.last_run) {
+                        document.getElementById('last-run-display').innerText = data.last_run;
+                    } else {
+                        document.getElementById('last-run-display').innerText = "NEVER";
                     }
 
                     const eventList = document.getElementById('event-list');

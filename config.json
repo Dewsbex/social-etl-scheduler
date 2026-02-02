@@ -32,8 +32,7 @@
         "exclude_keywords": [
             "MARC",
             "SADIQ",
-            "ENERGY",
-            "NEWSLETTER"
+            "ENERGY"
         ],
         "strict_override_keywords": [
             "fobg",

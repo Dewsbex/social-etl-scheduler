@@ -675,15 +675,25 @@
         } catch (e) { b.innerText = "ERROR"; }
     }
 
+    let currentVideoIndex = 1;
+
     function playHeroVideo() {
         const img = document.getElementById('hero-img');
         const video = document.getElementById('hero-video');
         if (video.style.display === 'block') return; // Already playing
         
+        // Alternate between 1 and 2
+        const videoNum = currentVideoIndex;
+        currentVideoIndex = currentVideoIndex === 1 ? 2 : 1;
+        
+        video.src = `/static/images/hero_looper_${videoNum}.mp4`;
+        video.load();
+        
         img.style.display = 'none';
         video.style.display = 'block';
         video.play();
         
+        // When video ends, hide it and show image again
         video.onended = function() {
             video.style.display = 'none';
             img.style.display = 'block';
