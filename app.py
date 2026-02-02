@@ -80,14 +80,14 @@ def event_callback(event_data):
     if len(etl_status["events"]) > 50:
         etl_status["events"].pop()
 
-def run_etl_job():
+def run_etl_job(is_manual=False):
     log_message("Starting ETL Job...")
     etl_status["status"] = "RUNNING"
     
     try:
         # Import and call actual ETL pipeline here
         from etl_pipeline import run_pipeline
-        run_pipeline(log_callback=log_message, event_callback=event_callback)
+        run_pipeline(log_callback=log_message, event_callback=event_callback, is_manual=is_manual)
         # time.sleep(2) # Simulating work - Removed
         # log_message("ETL Job Completed Successfully.") - Logic handled in pipeline or can add here
     except Exception as e:
@@ -126,7 +126,7 @@ def get_status():
 @app.route('/api/trigger', methods=['POST'])
 def trigger_etl():
     if etl_status["status"] == "IDLE":
-        threading.Thread(target=run_etl_job).start()
+        threading.Thread(target=run_etl_job, kwargs={"is_manual": True}).start()
         return jsonify({"message": "ETL Job Triggered"}), 200
     else:
         return jsonify({"message": "ETL Job already running"}), 409

@@ -48,7 +48,7 @@ def get_credentials():
             
     return creds
 
-def extract_emails(service, query="label:inbox", date_filter="newer_than:150d"):
+def extract_emails(service, query="label:inbox", date_filter="newer_than:1d"):
     """
     Phase 1: EXTRACT
     """
@@ -344,7 +344,7 @@ def load_to_calendar(service, event_json, dry_run=False, approval_mode=False, ra
     except Exception as e:
         return f"Calendar Insert Failed: {e}", None
 
-def run_pipeline(log_callback=print, event_callback=None):
+def run_pipeline(log_callback=print, event_callback=None, is_manual=False):
     log_callback("Initializing ETL Pipeline...")
     
     try:
@@ -359,18 +359,24 @@ def run_pipeline(log_callback=print, event_callback=None):
 
     log_callback("Phase 1: Scanning Inbox...")
     
-    # Determine lookback period based on state
-    last_run_ts = get_last_successful_run()
-    if last_run_ts:
-        days_since = (time.time() - last_run_ts) / (24 * 3600)
-        # Add 1 day buffer to be safe
-        lookback_days = math.ceil(days_since) + 1
-        date_filter = f"newer_than:{lookback_days}d"
-        log_callback(f" > Last success: {datetime.fromtimestamp(last_run_ts).strftime('%Y-%m-%d %H:%M')}. Scanning last {lookback_days} days.")
+    # Determine lookback period
+    if is_manual:
+        # Manual sync: Always use last 24 hours
+        date_filter = "newer_than:1d"
+        log_callback(" > Manual sync requested. Scanning last 24 hours.")
     else:
-        # Initial run / fallback
-        date_filter = "newer_than:6m"
-        log_callback(" > No previous state found. Running INITIAL 6-MONTH BACKFILL.")
+        # Scheduled sync: Use timestamp-based lookback
+        last_run_ts = get_last_successful_run()
+        if last_run_ts:
+            days_since = (time.time() - last_run_ts) / (24 * 3600)
+            # Add 1 day buffer to be safe
+            lookback_days = math.ceil(days_since) + 1
+            date_filter = f"newer_than:{lookback_days}d"
+            log_callback(f" > Last success: {datetime.fromtimestamp(last_run_ts).strftime('%Y-%m-%d %H:%M')}. Scanning last {lookback_days} days.")
+        else:
+            # Initial run / fallback
+            date_filter = "newer_than:6m"
+            log_callback(" > No previous state found. Running INITIAL 6-MONTH BACKFILL.")
         
     emails = extract_emails(gmail_service, date_filter=date_filter)
     
@@ -379,24 +385,23 @@ def run_pipeline(log_callback=print, event_callback=None):
     try:
          portal_events = asyncio.run(scan_school_portal())
          if portal_events:
-             log_callback(f"Found {len(portal_events)} events from Portal.")
+             log_callback(f" > Found {len(portal_events)} portal events")
          else:
-             log_callback("No events found from Portal.")
+             log_callback(" > No portal events detected")
     except Exception as e:
-        log_callback(f"Portal Scan Failed: {e}")
-        portal_events = []
+         log_callback(f"Portal scan failed (non-critical): {e}")
+         portal_events = []
 
     # Combined Processing
     # We treat extracted emails as 'raw sources' that need transform
     # We treat portal events as 'already transformed' (mostly) but needing calendar loading
     
     # 1. Process Emails
+    log_callback(f"Phase 2+3: Processing {len(emails)} emails...")
     if emails:
-        log_callback(f"Found {len(emails)} candidate emails.")
         for email in emails:
-            # Pre-AI Filter: Check heuristics first to save tokens
-            full_text = f"{email['subject']} {email['body']}"
-            pre_subjects = identify_child(full_text)
+            # Quick pre-screening: Use STRICT subject-based heuristics to filter out junk
+            pre_subjects = quick_screen_subject(email.get('subject', ''))
             
             if pre_subjects == "IGNORE":
                 log_callback(f"Skipping (Heuristic Ignore): {email['subject']}...")
