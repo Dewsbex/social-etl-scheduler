@@ -381,17 +381,18 @@ def run_pipeline(log_callback=print, event_callback=None, is_manual=False):
         
     emails = extract_emails(gmail_service, date_filter=date_filter)
     
-    # Phase 1b: Portal Scanning (Async)
-    log_callback("Phase 1b: Scanning School Portal...")
-    try:
-         portal_events = asyncio.run(scan_school_portal())
-         if portal_events:
-             log_callback(f" > Found {len(portal_events)} portal events")
-         else:
-             log_callback(" > No portal events detected")
-    except Exception as e:
-         log_callback(f"Portal scan failed (non-critical): {e}")
-         portal_events = []
+    # Phase 1b: Portal Scanning (Disabled - requires browser on Render)
+    log_callback("Phase 1b: Portal scanning disabled (browser not available on Render)")
+    portal_events = []
+    # try:
+    #      portal_events = asyncio.run(scan_school_portal())
+    #      if portal_events:
+    #          log_callback(f" > Found {len(portal_events)} portal events")
+    #      else:
+    #          log_callback(" > No portal events detected")
+    # except Exception as e:
+    #      log_callback(f"Portal scan failed (non-critical): {e}")
+    #      portal_events = []
 
     # Combined Processing
     # We treat extracted emails as 'raw sources' that need transform
