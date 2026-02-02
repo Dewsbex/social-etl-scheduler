@@ -70,6 +70,7 @@ def extract_emails(service, query="label:inbox", date_filter="newer_than:1d"):
             "School Trip", "Assembly", "Sports Day", "Parent Evening", "PTA", "Costume Day", 
             "Year 3", "Year 5", "Year 6", "Reception Year", "Wednesday Notice",
             "Benjamin Dewsbery", "Benji Dewsbery", "Tristan Dewsbery",
+            "Benjamin", "Benji", "Tristan",  # Added standalone first names
             "Bishop Gilpin", "Dees Days", "FOBG", "Friends of Bishop Gilpin",
             "Krispy Kreme", "donut", "fundraiser"
         ]
